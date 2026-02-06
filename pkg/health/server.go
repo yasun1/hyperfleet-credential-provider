@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/pkg/logger"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/pkg/logger"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 

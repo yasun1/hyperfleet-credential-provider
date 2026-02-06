@@ -12,9 +12,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/internal/provider"
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/internal/provider/aws"
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/pkg/logger"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/internal/provider"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/internal/provider/aws"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/pkg/logger"
 )
 
 // TestAWSIntegration tests end-to-end AWS token generation and cluster info retrieval

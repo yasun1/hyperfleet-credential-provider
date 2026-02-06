@@ -47,7 +47,7 @@ PRIMARY OBJECTIVE
 
 Design and implement a standalone binary:
 
-    hyperfleet-cloud-provider
+    hyperfleet-credential-provider
 
 This binary must:
 

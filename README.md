@@ -49,22 +49,22 @@ It implements the [Kubernetes client-go credential plugin](https://kubernetes.io
 
 ```bash
 # Download binary (replace VERSION with latest release)
-curl -L https://github.com/openshift-hyperfleet/hyperfleet-cloud-provider/releases/download/VERSION/hyperfleet-cloud-provider-linux-amd64 -o hyperfleet-cloud-provider
-chmod +x hyperfleet-cloud-provider
-sudo mv hyperfleet-cloud-provider /usr/local/bin/
+curl -L https://github.com/openshift-hyperfleet/hyperfleet-credential-provider/releases/download/VERSION/hyperfleet-credential-provider-linux-amd64 -o hyperfleet-credential-provider
+chmod +x hyperfleet-credential-provider
+sudo mv hyperfleet-credential-provider /usr/local/bin/
 
 # Or build from source
-git clone https://github.com/openshift-hyperfleet/hyperfleet-cloud-provider.git
-cd hyperfleet-cloud-provider
+git clone https://github.com/openshift-hyperfleet/hyperfleet-credential-provider.git
+cd hyperfleet-credential-provider
 make build
-sudo cp bin/hyperfleet-cloud-provider /usr/local/bin/
+sudo cp bin/hyperfleet-credential-provider /usr/local/bin/
 ```
 
 ### Docker Image
 
 ```bash
 # Pull from registry
-docker pull ghcr.io/openshift-hyperfleet/hyperfleet-cloud-provider:latest
+docker pull ghcr.io/openshift-hyperfleet/hyperfleet-credential-provider:latest
 
 # Or build locally
 make image
@@ -74,11 +74,11 @@ make image
 
 ```bash
 # Check version
-hyperfleet-cloud-provider version
+hyperfleet-credential-provider version
 
 # Generate GCP token
 export GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
-hyperfleet-cloud-provider get-token \
+hyperfleet-credential-provider get-token \
   --provider=gcp \
   --cluster-name=my-cluster \
   --project-id=my-project
@@ -86,7 +86,7 @@ hyperfleet-cloud-provider get-token \
 # Generate AWS token
 export AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE
 export AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
-hyperfleet-cloud-provider get-token \
+hyperfleet-credential-provider get-token \
   --provider=aws \
   --cluster-name=my-cluster \
   --region=us-east-1
@@ -95,7 +95,7 @@ hyperfleet-cloud-provider get-token \
 export AZURE_CLIENT_ID=11111111-1111-1111-1111-111111111111
 export AZURE_CLIENT_SECRET=your-client-secret
 export AZURE_TENANT_ID=22222222-2222-2222-2222-222222222222
-hyperfleet-cloud-provider get-token \
+hyperfleet-credential-provider get-token \
   --provider=azure \
   --cluster-name=my-cluster \
   --subscription-id=33333333-3333-3333-3333-333333333333
@@ -145,7 +145,7 @@ users:
   user:
     exec:
       apiVersion: client.authentication.k8s.io/v1
-      command: hyperfleet-cloud-provider
+      command: hyperfleet-credential-provider
       args:
       - get-token
       - --provider=gcp
@@ -199,7 +199,7 @@ users:
   user:
     exec:
       apiVersion: client.authentication.k8s.io/v1
-      command: hyperfleet-cloud-provider
+      command: hyperfleet-credential-provider
       args:
       - get-token
       - --provider=aws
@@ -242,7 +242,7 @@ users:
   user:
     exec:
       apiVersion: client.authentication.k8s.io/v1
-      command: hyperfleet-cloud-provider
+      command: hyperfleet-credential-provider
       args:
       - get-token
       - --provider=azure
@@ -287,23 +287,23 @@ kubectl apply -f deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: hyperfleet-cloud-provider
+  name: hyperfleet-credential-provider
 spec:
   replicas: 3
   selector:
     matchLabels:
-      app: hyperfleet-cloud-provider
+      app: hyperfleet-credential-provider
   template:
     metadata:
       labels:
-        app: hyperfleet-cloud-provider
+        app: hyperfleet-credential-provider
     spec:
       securityContext:
         runAsNonRoot: true
         runAsUser: 65532
       containers:
       - name: provider
-        image: ghcr.io/openshift-hyperfleet/hyperfleet-cloud-provider:latest
+        image: ghcr.io/openshift-hyperfleet/hyperfleet-credential-provider:latest
         ports:
         - name: health
           containerPort: 8080
@@ -337,7 +337,7 @@ spec:
 docker run --rm \
   -e GOOGLE_APPLICATION_CREDENTIALS=/vault/secrets/gcp-sa.json \
   -v /path/to/gcp-sa.json:/vault/secrets/gcp-sa.json:ro \
-  ghcr.io/openshift-hyperfleet/hyperfleet-cloud-provider:latest \
+  ghcr.io/openshift-hyperfleet/hyperfleet-credential-provider:latest \
   get-token \
   --provider=gcp \
   --cluster-name=my-cluster \
@@ -350,8 +350,8 @@ docker run --rm \
 version: '3.8'
 
 services:
-  hyperfleet-cloud-provider:
-    image: ghcr.io/openshift-hyperfleet/hyperfleet-cloud-provider:latest
+  hyperfleet-credential-provider:
+    image: ghcr.io/openshift-hyperfleet/hyperfleet-credential-provider:latest
     ports:
       - "8080:8080"
     environment:
@@ -414,7 +414,7 @@ Service information.
 **Response:**
 ```json
 {
-  "service": "hyperfleet-cloud-provider",
+  "service": "hyperfleet-credential-provider",
   "status": "running",
   "uptime": "2h15m30s",
   "endpoints": ["/healthz", "/readyz", "/livez", "/metrics"]
@@ -472,11 +472,11 @@ histogram_quantile(0.95, rate(hyperfleet_cloud_provider_token_generation_duratio
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
-  name: hyperfleet-cloud-provider
+  name: hyperfleet-credential-provider
 spec:
   selector:
     matchLabels:
-      app: hyperfleet-cloud-provider
+      app: hyperfleet-credential-provider
   endpoints:
   - port: health
     path: /metrics
@@ -526,7 +526,7 @@ make lint
 ### Project Structure
 
 ```
-hyperfleet-cloud-provider/
+hyperfleet-credential-provider/
 ├── cmd/provider/          # Main application entry point
 ├── internal/
 │   ├── config/           # Configuration loading
@@ -584,14 +584,14 @@ Current test coverage: **>90%** across all packages
 **Debug Steps:**
 ```bash
 # Test token generation manually
-hyperfleet-cloud-provider get-token \
+hyperfleet-credential-provider get-token \
   --provider=gcp \
   --cluster-name=my-cluster \
   --project-id=my-project \
   --log-level=debug
 
 # Validate credentials
-hyperfleet-cloud-provider validate-credentials --provider=gcp
+hyperfleet-credential-provider validate-credentials --provider=gcp
 ```
 
 #### Health Check Failures
@@ -653,7 +653,7 @@ export LOG_FORMAT=console
                        │
                        ▼
         ┌──────────────────────────────┐
-        │  hyperfleet-cloud-provider   │
+        │  hyperfleet-credential-provider   │
         │  ┌────────────────────────┐  │
         │  │  Provider Router       │  │
         │  └───────┬────────────────┘  │
@@ -676,7 +676,7 @@ export LOG_FORMAT=console
 
 1. kubectl reads kubeconfig
 2. Detects exec plugin configuration
-3. Invokes hyperfleet-cloud-provider
+3. Invokes hyperfleet-credential-provider
 4. Provider loads credentials
 5. Generates cloud-specific token
 6. Returns ExecCredential JSON
@@ -710,7 +710,7 @@ Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for detai
 
 ## Support
 
-- **Issues:** https://github.com/openshift-hyperfleet/hyperfleet-cloud-provider/issues
+- **Issues:** https://github.com/openshift-hyperfleet/hyperfleet-credential-provider/issues
 - **Documentation:** See `docs/` directory
 - **Examples:** See `configs/examples/` directory
 

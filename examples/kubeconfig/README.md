@@ -14,7 +14,7 @@ Instead of manually editing these examples, use the `generate-kubeconfig` comman
 
 ```bash
 # GCP/GKE
-hyperfleet-cloud-provider generate-kubeconfig \
+hyperfleet-credential-provider generate-kubeconfig \
   --provider=gcp \
   --cluster-name=my-cluster \
   --project-id=my-project \
@@ -23,14 +23,14 @@ hyperfleet-cloud-provider generate-kubeconfig \
   --output=kubeconfig.yaml
 
 # AWS/EKS
-hyperfleet-cloud-provider generate-kubeconfig \
+hyperfleet-credential-provider generate-kubeconfig \
   --provider=aws \
   --cluster-name=my-cluster \
   --region=us-east-1 \
   --output=kubeconfig.yaml
 
 # Azure/AKS
-hyperfleet-cloud-provider generate-kubeconfig \
+hyperfleet-credential-provider generate-kubeconfig \
   --provider=azure \
   --cluster-name=my-cluster \
   --subscription-id=xxx \

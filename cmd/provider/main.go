@@ -5,11 +5,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/cmd/provider/cluster"
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/cmd/provider/common"
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/cmd/provider/kubeconfig"
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/cmd/provider/token"
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/cmd/provider/version"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/cmd/provider/cluster"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/cmd/provider/common"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/cmd/provider/kubeconfig"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/cmd/provider/token"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/cmd/provider/version"
 )
 
 func main() {
@@ -18,9 +18,9 @@ func main() {
 
 	// Create root command
 	rootCmd := &cobra.Command{
-		Use:   "hyperfleet-cloud-provider",
+		Use:   "hyperfleet-credential-provider",
 		Short: "Multi-cloud Kubernetes authentication token provider",
-		Long: `HyperFleet Cloud Provider generates short-lived Kubernetes authentication tokens
+		Long: `HyperFleet Credential Provider generates short-lived Kubernetes authentication tokens
 for GKE, EKS, and AKS clusters without requiring cloud CLIs.
 
 Supports Kubernetes exec plugin authentication for seamless cluster access.`,

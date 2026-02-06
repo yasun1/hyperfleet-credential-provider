@@ -2,7 +2,7 @@
 
 ## Overview
 
-This guide shows how to integrate `hyperfleet-cloud-provider` into Prow CI workflows using a **two-stage approach**:
+This guide shows how to integrate `hyperfleet-credential-provider` into Prow CI workflows using a **two-stage approach**:
 
 1. **Deploy Pod** - Setup phase (generates kubeconfig using single command)
 2. **Test Pod** - Testing phase (uses kubeconfig with automatic token generation)
@@ -16,7 +16,7 @@ This guide shows how to integrate `hyperfleet-cloud-provider` into Prow CI workf
 │                                                              │
 │  STAGE 1: Deploy Pod (Setup)                                │
 │  ┌────────────────────────────────────────────────────────┐ │
-│  │ Container: hyperfleet-cloud-provider:latest (~25MB)    │ │
+│  │ Container: hyperfleet-credential-provider:latest (~25MB)    │ │
 │  │                                                        │ │
 │  │ 1. Read Vault-mounted credentials                     │ │
 │  │    - GCP: /vault/secrets/gcp-sa.json                  │ │
@@ -24,7 +24,7 @@ This guide shows how to integrate `hyperfleet-cloud-provider` into Prow CI workf
 │  │    - Azure: /vault/secrets/azure-credentials.json     │ │
 │  │                                                        │ │
 │  │ 2. Generate kubeconfig (single command!)              │ │
-│  │    $ hyperfleet-cloud-provider generate-kubeconfig \  │ │
+│  │    $ hyperfleet-credential-provider generate-kubeconfig \  │ │
 │  │        --provider=$PROVIDER \                          │ │
 │  │        --cluster-name=$CLUSTER \                       │ │
 │  │        --output=/workspace/kubeconfig.yaml             │ │
@@ -53,7 +53,7 @@ This guide shows how to integrate `hyperfleet-cloud-provider` into Prow CI workf
 │  │    $ make test-e2e                                    │ │
 │  │                                                        │ │
 │  │    Each kubectl call automatically triggers:          │ │
-│  │    → hyperfleet-cloud-provider get-token              │ │
+│  │    → hyperfleet-credential-provider get-token              │ │
 │  │    → Fresh token generated (<300ms)                   │ │
 │  │    → No cloud CLI tools needed!                       │ │
 │  └────────────────────────────────────────────────────────┘ │
@@ -64,7 +64,7 @@ This guide shows how to integrate `hyperfleet-cloud-provider` into Prow CI workf
 
 ### GCP/GKE
 ```bash
-hyperfleet-cloud-provider generate-kubeconfig \
+hyperfleet-credential-provider generate-kubeconfig \
   --provider=gcp \
   --cluster-name=my-cluster \
   --project-id=my-project \
@@ -74,7 +74,7 @@ hyperfleet-cloud-provider generate-kubeconfig \
 
 ### AWS/EKS
 ```bash
-hyperfleet-cloud-provider generate-kubeconfig \
+hyperfleet-credential-provider generate-kubeconfig \
   --provider=aws \
   --cluster-name=my-cluster \
   --region=us-east-1 \
@@ -83,7 +83,7 @@ hyperfleet-cloud-provider generate-kubeconfig \
 
 ### Azure/AKS
 ```bash
-hyperfleet-cloud-provider generate-kubeconfig \
+hyperfleet-credential-provider generate-kubeconfig \
   --provider=azure \
   --cluster-name=my-cluster \
   --subscription-id=<subscription-id> \
@@ -127,9 +127,9 @@ presubmits:
       containers:
       # Deploy Pod - Generate kubeconfig
       - name: setup
-        image: ghcr.io/openshift-hyperfleet/hyperfleet-cloud-provider:latest
+        image: ghcr.io/openshift-hyperfleet/hyperfleet-credential-provider:latest
         command:
-        - hyperfleet-cloud-provider
+        - hyperfleet-credential-provider
         - generate-kubeconfig
         - --provider=gcp
         - --cluster-name=hyperfleet-dev-prow
@@ -188,9 +188,9 @@ presubmits:
     spec:
       containers:
       - name: setup
-        image: ghcr.io/openshift-hyperfleet/hyperfleet-cloud-provider:latest
+        image: ghcr.io/openshift-hyperfleet/hyperfleet-credential-provider:latest
         command:
-        - hyperfleet-cloud-provider
+        - hyperfleet-credential-provider
         - generate-kubeconfig
         - --provider=gcp
         - --cluster-name=hyperfleet-dev-prow
@@ -224,9 +224,9 @@ presubmits:
     spec:
       containers:
       - name: setup
-        image: ghcr.io/openshift-hyperfleet/hyperfleet-cloud-provider:latest
+        image: ghcr.io/openshift-hyperfleet/hyperfleet-credential-provider:latest
         command:
-        - hyperfleet-cloud-provider
+        - hyperfleet-credential-provider
         - generate-kubeconfig
         - --provider=aws
         - --cluster-name=hyperfleet-dev-eks
@@ -259,9 +259,9 @@ presubmits:
     spec:
       containers:
       - name: setup
-        image: ghcr.io/openshift-hyperfleet/hyperfleet-cloud-provider:latest
+        image: ghcr.io/openshift-hyperfleet/hyperfleet-credential-provider:latest
         command:
-        - hyperfleet-cloud-provider
+        - hyperfleet-credential-provider
         - generate-kubeconfig
         - --provider=azure
         - --cluster-name=hyperfleet-dev-aks
@@ -313,9 +313,9 @@ presubmits:
       containers:
       # Step 1: Generate kubeconfig
       - name: setup
-        image: ghcr.io/openshift-hyperfleet/hyperfleet-cloud-provider:latest
+        image: ghcr.io/openshift-hyperfleet/hyperfleet-credential-provider:latest
         command:
-        - hyperfleet-cloud-provider
+        - hyperfleet-credential-provider
         - generate-kubeconfig
         - --provider=gcp
         - --cluster-name=hyperfleet-dev-prow
@@ -473,13 +473,13 @@ echo "=========================================="
 ### Deploy Pod (Setup)
 
 **Purpose:** Generate kubeconfig for cluster access
-**Image:** `hyperfleet-cloud-provider:latest` (~25MB)
+**Image:** `hyperfleet-credential-provider:latest` (~25MB)
 **Runs:** Once per test workflow
 **Outputs:** `kubeconfig.yaml` to shared volume
 
 **Command:**
 ```bash
-hyperfleet-cloud-provider generate-kubeconfig \
+hyperfleet-credential-provider generate-kubeconfig \
   --provider=<gcp|aws|azure> \
   --cluster-name=<cluster> \
   --output=/workspace/kubeconfig.yaml \
@@ -519,16 +519,16 @@ hyperfleet-cloud-provider generate-kubeconfig \
 ls -la /vault/secrets/
 
 # Test credentials manually
-hyperfleet-cloud-provider validate-credentials --provider=gcp
+hyperfleet-credential-provider validate-credentials --provider=gcp
 ```
 
 ### Issue: "kubectl: exec plugin failed"
 
-**Solution:** Check that `hyperfleet-cloud-provider` binary is in PATH in the Test Pod.
+**Solution:** Check that `hyperfleet-credential-provider` binary is in PATH in the Test Pod.
 
 ```bash
 # Verify binary exists
-which hyperfleet-cloud-provider
+which hyperfleet-credential-provider
 
 # Check exec plugin logs (logs go to stderr)
 kubectl get nodes 2>&1 | grep -i error
@@ -536,7 +536,7 @@ kubectl get nodes 2>&1 | grep -i error
 
 ## Next Steps
 
-1. Build and push the `hyperfleet-cloud-provider` image
+1. Build and push the `hyperfleet-credential-provider` image
 2. Create Kubernetes Secrets or configure Vault
 3. Update your ProwJob configurations
 4. Test with a simple job first

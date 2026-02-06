@@ -12,9 +12,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/internal/provider"
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/internal/provider/gcp"
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/pkg/logger"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/internal/provider"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/internal/provider/gcp"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/pkg/logger"
 )
 
 // TestGCPIntegration tests end-to-end GCP token generation and cluster info retrieval

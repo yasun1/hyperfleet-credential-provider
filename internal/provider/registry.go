@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/pkg/errors"
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/pkg/logger"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/pkg/errors"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/pkg/logger"
 )
 
 // ProviderFactory is a function that creates a new provider instance

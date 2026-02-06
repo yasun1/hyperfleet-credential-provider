@@ -8,7 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/eks"
 
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/pkg/logger"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/pkg/logger"
 )
 
 // ClusterInfo contains EKS cluster information

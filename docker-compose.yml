@@ -1,9 +1,9 @@
-# Docker Compose for HyperFleet Cloud Provider development and testing
+# Docker Compose for HyperFleet Credential Provider development and testing
 version: '3.8'
 
 services:
   # Main service
-  hyperfleet-cloud-provider:
+  hyperfleet-credential-provider:
     build:
       context: .
       dockerfile: Dockerfile
@@ -11,10 +11,10 @@ services:
         VERSION: ${VERSION:-dev}
         COMMIT: ${COMMIT:-unknown}
         BUILD_TIME: ${BUILD_TIME:-unknown}
-    image: ghcr.io/openshift-hyperfleet/hyperfleet-cloud-provider:${VERSION:-dev}
-    container_name: hyperfleet-cloud-provider
+    image: ghcr.io/openshift-hyperfleet/hyperfleet-credential-provider:${VERSION:-dev}
+    container_name: hyperfleet-credential-provider
     # Override entrypoint for development
-    entrypoint: ["/usr/local/bin/hyperfleet-cloud-provider"]
+    entrypoint: ["/usr/local/bin/hyperfleet-credential-provider"]
     command: ["--help"]
     # Mount credentials for testing
     volumes:
@@ -55,7 +55,7 @@ services:
     image: bitnami/kubectl:latest
     container_name: kubectl-test
     depends_on:
-      - hyperfleet-cloud-provider
+      - hyperfleet-credential-provider
     volumes:
       # Mount kubeconfig with exec plugin
       - ./configs/examples:/kubeconfig:ro

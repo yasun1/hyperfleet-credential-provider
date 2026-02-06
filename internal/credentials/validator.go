@@ -1,7 +1,7 @@
 package credentials
 
 import (
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/pkg/errors"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/pkg/errors"
 )
 
 // validateGCPCredentials validates GCP service account credentials

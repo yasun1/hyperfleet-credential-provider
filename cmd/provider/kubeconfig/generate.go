@@ -8,11 +8,11 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/cmd/provider/common"
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/internal/provider/aws"
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/internal/provider/azure"
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/internal/provider/gcp"
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/pkg/logger"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/cmd/provider/common"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/internal/provider/aws"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/internal/provider/azure"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/internal/provider/gcp"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/pkg/logger"
 )
 
 var outputFile string
@@ -24,11 +24,11 @@ func NewCommand(flags *common.Flags) *cobra.Command {
 		Long: `Generate a complete kubeconfig file for the specified cluster.
 
 This command uses cloud provider SDKs (no CLI required) to fetch cluster details
-and generates a kubeconfig that uses hyperfleet-cloud-provider for token generation.
+and generates a kubeconfig that uses hyperfleet-credential-provider for token generation.
 
 Examples:
   # GCP/GKE
-  hyperfleet-cloud-provider generate-kubeconfig \
+  hyperfleet-credential-provider generate-kubeconfig \
     --provider=gcp \
     --cluster-name=my-cluster \
     --project-id=my-project \
@@ -272,7 +272,7 @@ func generateKubeconfigYAML(endpoint, caCert string, providerInfo map[string]str
 				"user": map[string]interface{}{
 					"exec": map[string]interface{}{
 						"apiVersion": "client.authentication.k8s.io/v1",
-						"command":    "hyperfleet-cloud-provider",
+						"command":    "hyperfleet-credential-provider",
 						"args":       execArgs,
 						"env": []map[string]string{
 							{

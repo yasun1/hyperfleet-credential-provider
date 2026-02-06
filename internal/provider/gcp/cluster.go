@@ -8,7 +8,7 @@ import (
 	"google.golang.org/api/container/v1"
 	"google.golang.org/api/option"
 
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/pkg/logger"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/pkg/logger"
 )
 
 // ClusterInfo contains GKE cluster information

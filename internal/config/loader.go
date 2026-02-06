@@ -7,7 +7,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/pkg/errors"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/pkg/errors"
 )
 
 // LoadOption is a functional option for loading configuration

@@ -12,9 +12,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/internal/provider"
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/internal/provider/azure"
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/pkg/logger"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/internal/provider"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/internal/provider/azure"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/pkg/logger"
 )
 
 // TestAzureIntegration tests end-to-end Azure token generation and cluster info retrieval

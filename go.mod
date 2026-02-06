@@ -1,4 +1,4 @@
-module github.com/openshift-hyperfleet/hyperfleet-cloud-provider
+module github.com/openshift-hyperfleet/hyperfleet-credential-provider
 
 go 1.24.0
 

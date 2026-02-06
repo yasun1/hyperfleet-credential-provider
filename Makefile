@@ -3,7 +3,7 @@
 CGO_ENABLED ?= 0
 GO ?= go
 
-BINARY_NAME := hyperfleet-cloud-provider
+BINARY_NAME := hyperfleet-credential-provider
 BUILD_DIR := bin
 MAIN_PATH := cmd/provider/main.go
 
@@ -16,17 +16,17 @@ BUILD_TIME := $(shell date -u '+%Y-%m-%d_%H:%M:%S')
 container_tool ?= podman
 
 IMAGE_REGISTRY ?= quay.io/openshift-hyperfleet
-IMAGE_NAME ?= hyperfleet-cloud-provider
+IMAGE_NAME ?= hyperfleet-credential-provider
 IMAGE_TAG ?= latest
 
 QUAY_USER ?=
 DEV_TAG ?= dev-$(GIT_SHA)
 
-LDFLAGS := -ldflags "-X github.com/openshift-hyperfleet/hyperfleet-cloud-provider/cmd/provider/version.Version=$(VERSION) -X github.com/openshift-hyperfleet/hyperfleet-cloud-provider/cmd/provider/version.Commit=$(COMMIT) -X github.com/openshift-hyperfleet/hyperfleet-cloud-provider/cmd/provider/version.BuildTime=$(BUILD_TIME)"
+LDFLAGS := -ldflags "-X github.com/openshift-hyperfleet/hyperfleet-credential-provider/cmd/provider/version.Version=$(VERSION) -X github.com/openshift-hyperfleet/hyperfleet-credential-provider/cmd/provider/version.Commit=$(COMMIT) -X github.com/openshift-hyperfleet/hyperfleet-credential-provider/cmd/provider/version.BuildTime=$(BUILD_TIME)"
 
 help:
 	@echo ""
-	@echo "HyperFleet Cloud Provider - Multi-cloud Kubernetes Token Provider"
+	@echo "HyperFleet Credential Provider - Multi-cloud Kubernetes Token Provider"
 	@echo ""
 	@echo "make build                compile binary to bin/"
 	@echo "make test                 run unit tests"

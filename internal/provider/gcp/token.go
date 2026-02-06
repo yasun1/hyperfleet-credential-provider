@@ -8,10 +8,10 @@ import (
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/internal/credentials"
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/internal/provider"
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/pkg/errors"
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/pkg/logger"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/internal/credentials"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/internal/provider"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/pkg/errors"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/pkg/logger"
 )
 
 // TokenGenerator handles GCP OAuth2 token generation for GKE clusters

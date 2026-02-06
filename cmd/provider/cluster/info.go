@@ -9,11 +9,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/cmd/provider/common"
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/internal/provider/aws"
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/internal/provider/azure"
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/internal/provider/gcp"
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/pkg/logger"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/cmd/provider/common"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/internal/provider/aws"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/internal/provider/azure"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/internal/provider/gcp"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/pkg/logger"
 )
 
 func NewCommand(flags *common.Flags) *cobra.Command {
@@ -26,20 +26,20 @@ This command uses cloud provider SDKs (no CLI required) to fetch cluster details
 
 Examples:
   # GCP/GKE
-  hyperfleet-cloud-provider get-cluster-info \
+  hyperfleet-credential-provider get-cluster-info \
     --provider=gcp \
     --cluster-name=my-cluster \
     --project-id=my-project \
     --region=us-central1
 
   # AWS/EKS
-  hyperfleet-cloud-provider get-cluster-info \
+  hyperfleet-credential-provider get-cluster-info \
     --provider=aws \
     --cluster-name=my-cluster \
     --region=us-east-1
 
   # Azure/AKS
-  hyperfleet-cloud-provider get-cluster-info \
+  hyperfleet-credential-provider get-cluster-info \
     --provider=azure \
     --cluster-name=my-cluster \
     --subscription-id=xxx \

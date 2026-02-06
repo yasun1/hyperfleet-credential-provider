@@ -3,7 +3,7 @@ package execplugin
 import (
 	"time"
 
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/pkg/errors"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/pkg/errors"
 )
 
 // Validator validates ExecCredential responses

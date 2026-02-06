@@ -3,9 +3,9 @@ package provider
 import (
 	"context"
 
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/internal/config"
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/pkg/errors"
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/pkg/logger"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/internal/config"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/pkg/errors"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/pkg/logger"
 )
 
 // Factory creates providers based on configuration

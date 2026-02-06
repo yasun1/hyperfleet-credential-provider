@@ -5,7 +5,7 @@ import (
 
 	"github.com/go-playground/validator/v10"
 
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/pkg/errors"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/pkg/errors"
 )
 
 var validate *validator.Validate

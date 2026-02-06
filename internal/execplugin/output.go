@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/internal/provider"
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/pkg/errors"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/internal/provider"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/pkg/errors"
 )
 
 // OutputWriter handles writing ExecCredential output

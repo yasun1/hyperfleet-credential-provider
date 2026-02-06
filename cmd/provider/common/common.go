@@ -8,11 +8,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/internal/provider"
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/internal/provider/aws"
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/internal/provider/azure"
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/internal/provider/gcp"
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/pkg/logger"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/internal/provider"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/internal/provider/aws"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/internal/provider/azure"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/internal/provider/gcp"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/pkg/logger"
 )
 
 type Flags struct {

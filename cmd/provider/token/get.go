@@ -7,10 +7,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/cmd/provider/common"
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/internal/execplugin"
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/internal/provider"
-	"github.com/openshift-hyperfleet/hyperfleet-cloud-provider/pkg/logger"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/cmd/provider/common"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/internal/execplugin"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/internal/provider"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/pkg/logger"
 )
 
 func NewCommand(flags *common.Flags) *cobra.Command {
@@ -23,13 +23,13 @@ Outputs an ExecCredential JSON structure compatible with Kubernetes exec plugin.
 
 Examples:
   # GCP/GKE
-  hyperfleet-cloud-provider get-token --provider=gcp --cluster-name=my-cluster --project-id=my-project
+  hyperfleet-credential-provider get-token --provider=gcp --cluster-name=my-cluster --project-id=my-project
 
   # AWS/EKS
-  hyperfleet-cloud-provider get-token --provider=aws --cluster-name=my-cluster --region=us-east-1
+  hyperfleet-credential-provider get-token --provider=aws --cluster-name=my-cluster --region=us-east-1
 
   # Azure/AKS
-  hyperfleet-cloud-provider get-token --provider=azure --cluster-name=my-cluster --tenant-id=... --subscription-id=...
+  hyperfleet-credential-provider get-token --provider=azure --cluster-name=my-cluster --tenant-id=... --subscription-id=...
 `,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return run(flags)
