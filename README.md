@@ -1,47 +1,23 @@
-# HyperFleet Cloud Provider
+# HyperFleet Credential Provider
 
 > Multi-cloud Kubernetes authentication token provider for GKE, EKS, and AKS clusters
 
 [![Go Version](https://img.shields.io/badge/go-1.24+-blue.svg)](https://golang.org)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![Test Status](https://img.shields.io/badge/tests-193%20passing-green.svg)]()
-[![Coverage](https://img.shields.io/badge/coverage-90%25-green.svg)]()
 
 ## Overview
 
-HyperFleet Cloud Provider is a standalone binary that generates short-lived Kubernetes authentication tokens for Google Kubernetes Engine (GKE), Amazon Elastic Kubernetes Service (EKS), and Azure Kubernetes Service (AKS) without requiring cloud CLI tools like `gcloud`, `aws`, or `az`.
+HyperFleet Credential Provider is a standalone binary that generates short-lived Kubernetes authentication tokens for Google Kubernetes Engine (GKE), Amazon Elastic Kubernetes Service (EKS), and Azure Kubernetes Service (AKS) without requiring cloud CLI tools like `gcloud`, `aws`, or `az`.
 
 It implements the [Kubernetes client-go credential plugin](https://kubernetes.io/docs/reference/access-authn-authz/authentication/#client-go-credential-plugins) mechanism and is designed to work seamlessly with Prow CI workflows and other Kubernetes-native environments.
 
 ### Key Features
 
-✅ **Multi-Cloud Support**
-- Google Cloud Platform (GKE)
-- Amazon Web Services (EKS)
-- Microsoft Azure (AKS)
-
-✅ **No CLI Dependencies**
-- Pure Go implementation using cloud provider SDKs
-- No need for `gcloud`, `aws`, or `az` CLI tools
-- Smaller container images (~20-25MB) and faster execution
-
-✅ **Production Ready**
-- Comprehensive error handling and logging
-- Health check endpoints for Kubernetes probes
-- Prometheus metrics for monitoring
-- OpenTelemetry distributed tracing
-- Security-hardened Docker image (distroless base)
-
-✅ **Easy Integration**
-- Drop-in replacement for cloud CLI tools
-- Standard Kubernetes exec plugin interface
-- Works with any kubectl-compatible tool
-
-✅ **Observability**
-- 6 Prometheus metrics covering all operations
-- OpenTelemetry distributed tracing
-- Structured JSON logging
-- Health and readiness probes
+- **Multi-Cloud Support**: GCP (GKE), AWS (EKS), Azure (AKS)
+- **No CLI Dependencies**: Pure Go implementation using cloud provider SDKs
+- **Container-Ready**: Small container images (~40MB) with distroless base
+- **Standard Interface**: Kubernetes exec plugin compatible
+- **Prow CI Integration**: Purpose-built for CI/CD workflows
 
 ## Quick Start
 
@@ -60,11 +36,11 @@ make build
 sudo cp bin/hyperfleet-credential-provider /usr/local/bin/
 ```
 
-### Docker Image
+### Container Image
 
 ```bash
 # Pull from registry
-docker pull ghcr.io/openshift-hyperfleet/hyperfleet-credential-provider:latest
+podman pull quay.io/openshift-hyperfleet/hyperfleet-credential-provider:latest
 
 # Or build locally
 make image
@@ -81,57 +57,116 @@ export GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
 hyperfleet-credential-provider get-token \
   --provider=gcp \
   --cluster-name=my-cluster \
-  --project-id=my-project
+  --project-id=my-project \
+  --region=us-central1
 
-# Generate AWS token
-export AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE
-export AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+# Generate kubeconfig for GKE
+hyperfleet-credential-provider generate-kubeconfig \
+  --provider=gcp \
+  --cluster-name=my-cluster \
+  --project-id=my-project \
+  --region=us-central1 \
+  --credentials-file=/path/to/service-account.json \
+  --output=kubeconfig.yaml
+```
+
+## Commands
+
+### `get-token`
+
+Generate a Kubernetes authentication token in ExecCredential format.
+
+**Usage:**
+```bash
+hyperfleet-credential-provider get-token [flags]
+```
+
+**Flags:**
+- `--provider` - Cloud provider (gcp, aws, azure) [required]
+- `--cluster-name` - Cluster name [required]
+- `--credentials-file` - Path to credentials file
+- Provider-specific flags (see examples below)
+
+**Examples:**
+
+```bash
+# GCP
+hyperfleet-credential-provider get-token \
+  --provider=gcp \
+  --cluster-name=my-cluster \
+  --project-id=my-project \
+  --region=us-central1
+
+# AWS
 hyperfleet-credential-provider get-token \
   --provider=aws \
   --cluster-name=my-cluster \
   --region=us-east-1
 
-# Generate Azure token
-export AZURE_CLIENT_ID=11111111-1111-1111-1111-111111111111
-export AZURE_CLIENT_SECRET=your-client-secret
-export AZURE_TENANT_ID=22222222-2222-2222-2222-222222222222
+# Azure
 hyperfleet-credential-provider get-token \
   --provider=azure \
   --cluster-name=my-cluster \
-  --subscription-id=33333333-3333-3333-3333-333333333333
+  --subscription-id=12345678-1234-1234-1234-123456789012 \
+  --tenant-id=87654321-4321-4321-4321-210987654321
 ```
 
-## Table of Contents
+### `generate-kubeconfig`
 
-- [Installation](#installation)
-- [Configuration](#configuration)
-  - [Google Cloud Platform (GKE)](#google-cloud-platform-gke)
-  - [Amazon Web Services (EKS)](#amazon-web-services-eks)
-  - [Microsoft Azure (AKS)](#microsoft-azure-aks)
-- [Kubernetes Integration](#kubernetes-integration)
-- [Docker Deployment](#docker-deployment)
-- [Health Endpoints](#health-endpoints)
-- [Metrics & Observability](#metrics--observability)
-- [Development](#development)
-- [Testing](#testing)
-- [Troubleshooting](#troubleshooting)
-- [Architecture](#architecture)
-- [Contributing](#contributing)
+Generate a complete kubeconfig file with exec plugin configuration.
+
+**Usage:**
+```bash
+hyperfleet-credential-provider generate-kubeconfig [flags]
+```
+
+**Flags:**
+- `--provider` - Cloud provider (gcp, aws, azure) [required]
+- `--cluster-name` - Cluster name [required]
+- `--output` - Output file path (default: stdout)
+- `--credentials-file` - Path to credentials file
+- Provider-specific flags
+
+**Example:**
+```bash
+hyperfleet-credential-provider generate-kubeconfig \
+  --provider=gcp \
+  --cluster-name=hyperfleet-dev-prow \
+  --project-id=my-project \
+  --region=us-central1-a \
+  --credentials-file=/vault/secrets/gcp-sa.json \
+  --output=kubeconfig.yaml
+```
+
+### `get-cluster-info`
+
+Get cluster information (endpoint, CA certificate).
+
+**Usage:**
+```bash
+hyperfleet-credential-provider get-cluster-info [flags]
+```
+
+**Example:**
+```bash
+hyperfleet-credential-provider get-cluster-info \
+  --provider=gcp \
+  --cluster-name=my-cluster \
+  --project-id=my-project \
+  --region=us-central1
+```
 
 ## Configuration
 
 ### Google Cloud Platform (GKE)
 
-#### Prerequisites
+**Prerequisites:**
+- GCP service account with permissions:
+  - `roles/container.clusterViewer`
+  - `roles/iam.serviceAccountTokenCreator`
+- Service account key file (JSON)
 
-1. GCP service account with permissions:
-   - `roles/container.clusterViewer`
-   - `roles/iam.serviceAccountTokenCreator`
-
-2. Service account key file (JSON)
-
-#### Kubeconfig Example
-
+**Kubeconfig Example:**
 ```yaml
 apiVersion: v1
 kind: Config
@@ -145,7 +180,7 @@ users:
   user:
     exec:
       apiVersion: client.authentication.k8s.io/v1
-      command: hyperfleet-credential-provider
+      command: /usr/local/bin/hyperfleet-credential-provider
       args:
       - get-token
       - --provider=gcp
@@ -155,6 +190,7 @@ users:
       env:
       - name: GOOGLE_APPLICATION_CREDENTIALS
         value: /vault/secrets/gcp-sa.json
+      interactiveMode: Never
 contexts:
 - name: my-gke-context
   context:
@@ -163,29 +199,15 @@ contexts:
 current-context: my-gke-context
 ```
 
-#### Environment Variables
-
-```bash
-# Required
-export GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
-
-# Optional
-export LOG_LEVEL=info
-export LOG_FORMAT=json
-```
-
 ### Amazon Web Services (EKS)
 
-#### Prerequisites
+**Prerequisites:**
+- AWS IAM user or role with permissions:
+  - `eks:DescribeCluster`
+  - `sts:GetCallerIdentity`
+- AWS credentials (access key or IAM role)
 
-1. AWS IAM user or role with permissions:
-   - `eks:DescribeCluster`
-   - `sts:GetCallerIdentity`
-
-2. AWS credentials (access key or IAM role)
-
-#### Kubeconfig Example
-
+**Kubeconfig Example:**
 ```yaml
 apiVersion: v1
 kind: Config
@@ -199,17 +221,16 @@ users:
   user:
     exec:
       apiVersion: client.authentication.k8s.io/v1
-      command: hyperfleet-credential-provider
+      command: /usr/local/bin/hyperfleet-credential-provider
       args:
       - get-token
       - --provider=aws
       - --cluster-name=my-eks-cluster
       - --region=us-east-1
       env:
-      - name: AWS_ACCESS_KEY_ID
-        value: AKIAIOSFODNN7EXAMPLE
-      - name: AWS_SECRET_ACCESS_KEY
-        value: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+      - name: AWS_CREDENTIALS_FILE
+        value: /vault/secrets/aws-credentials
+      interactiveMode: Never
 contexts:
 - name: my-eks-context
   context:
@@ -220,15 +241,12 @@ current-context: my-eks-context
 
 ### Microsoft Azure (AKS)
 
-#### Prerequisites
+**Prerequisites:**
+- Azure service principal with permissions:
+  - `Azure Kubernetes Service Cluster User Role`
+- Service principal credentials
 
-1. Azure service principal with permissions:
-   - `Azure Kubernetes Service Cluster User Role`
-
-2. Service principal credentials
-
-#### Kubeconfig Example
-
+**Kubeconfig Example:**
 ```yaml
 apiVersion: v1
 kind: Config
@@ -242,7 +260,7 @@ users:
   user:
     exec:
       apiVersion: client.authentication.k8s.io/v1
-      command: hyperfleet-credential-provider
+      command: /usr/local/bin/hyperfleet-credential-provider
       args:
       - get-token
       - --provider=azure
@@ -250,10 +268,9 @@ users:
       - --subscription-id=12345678-1234-1234-1234-123456789012
       - --tenant-id=87654321-4321-4321-4321-210987654321
       env:
-      - name: AZURE_CLIENT_ID
-        value: 11111111-1111-1111-1111-111111111111
-      - name: AZURE_CLIENT_SECRET
-        value: your-client-secret
+      - name: AZURE_CREDENTIALS_FILE
+        value: /vault/secrets/azure-credentials.json
+      interactiveMode: Never
 contexts:
 - name: my-aks-context
   context:
@@ -262,246 +279,37 @@ contexts:
 current-context: my-aks-context
 ```
 
-## Kubernetes Integration
+## Prow CI Integration
 
-### Using with kubectl
+For Prow CI workflows, see the [Prow Integration Guide](docs/PROW_INTEGRATION_GUIDE.md).
 
-Once your kubeconfig is configured with the exec plugin, kubectl commands work normally:
+**Quick Overview:**
 
+1. **Deploy Pod**: Generate kubeconfig using `generate-kubeconfig` command
+2. **Test Pod**: Use generated kubeconfig with kubectl
+3. **Credentials**: Mount service account keys via Vault
+
+**Example Deploy Pod:**
 ```bash
-# Set kubeconfig
-export KUBECONFIG=/path/to/kubeconfig.yaml
-
-# Use kubectl
-kubectl get nodes
-kubectl get pods -A
-kubectl apply -f deployment.yaml
-
-# The provider is called automatically by kubectl
-# Token is generated on-demand with each request
-```
-
-### Kubernetes Deployment
-
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: hyperfleet-credential-provider
-spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: hyperfleet-credential-provider
-  template:
-    metadata:
-      labels:
-        app: hyperfleet-credential-provider
-    spec:
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: 65532
-      containers:
-      - name: provider
-        image: ghcr.io/openshift-hyperfleet/hyperfleet-credential-provider:latest
-        ports:
-        - name: health
-          containerPort: 8080
-        livenessProbe:
-          httpGet:
-            path: /healthz
-            port: health
-          initialDelaySeconds: 10
-          periodSeconds: 30
-        readinessProbe:
-          httpGet:
-            path: /readyz
-            port: health
-          initialDelaySeconds: 5
-          periodSeconds: 10
-        resources:
-          requests:
-            cpu: 100m
-            memory: 64Mi
-          limits:
-            cpu: 200m
-            memory: 128Mi
-```
-
-## Docker Deployment
-
-### Using Docker
-
-```bash
-# Run with GCP credentials
-docker run --rm \
-  -e GOOGLE_APPLICATION_CREDENTIALS=/vault/secrets/gcp-sa.json \
-  -v /path/to/gcp-sa.json:/vault/secrets/gcp-sa.json:ro \
-  ghcr.io/openshift-hyperfleet/hyperfleet-credential-provider:latest \
-  get-token \
+podman run --rm \
+  -v /vault/secrets/gcp-sa.json:/vault/secrets/gcp-sa.json:ro \
+  -v /workspace:/workspace \
+  quay.io/openshift-hyperfleet/hyperfleet-credential-provider:latest \
+  --credentials-file=/vault/secrets/gcp-sa.json \
+  generate-kubeconfig \
   --provider=gcp \
-  --cluster-name=my-cluster \
-  --project-id=my-project
+  --cluster-name=prow-cluster \
+  --project-id=my-project \
+  --region=us-central1 \
+  --output=/workspace/kubeconfig.yaml
 ```
-
-### Using Docker Compose
-
-```yaml
-version: '3.8'
-
-services:
-  hyperfleet-credential-provider:
-    image: ghcr.io/openshift-hyperfleet/hyperfleet-credential-provider:latest
-    ports:
-      - "8080:8080"
-    environment:
-      - LOG_LEVEL=info
-      - TRACING_ENABLED=true
-      - TRACING_ENDPOINT=jaeger:4317
-    volumes:
-      - ./credentials:/vault/secrets:ro
-
-  jaeger:
-    image: jaegertracing/all-in-one:latest
-    ports:
-      - "16686:16686"  # Jaeger UI
-      - "4317:4317"    # OTLP gRPC
-```
-
-## Health Endpoints
-
-The provider exposes HTTP endpoints for Kubernetes liveness and readiness probes on port 8080.
-
-### Available Endpoints
-
-#### `GET /healthz` (Liveness Probe)
-
-Indicates if the application is running.
-
-**Response (200 OK):**
-```json
-{
-  "status": "ok",
-  "checks": {
-    "server": "running"
-  }
-}
-```
-
-#### `GET /readyz` (Readiness Probe)
-
-Indicates if the application is ready to serve traffic.
-
-**Response (200 OK):**
-```json
-{
-  "status": "ok",
-  "checks": {
-    "database": "ok",
-    "api": "ok"
-  }
-}
-```
-
-#### `GET /metrics`
-
-Prometheus metrics endpoint. See [Metrics & Observability](#metrics--observability).
-
-#### `GET /`
-
-Service information.
-
-**Response:**
-```json
-{
-  "service": "hyperfleet-credential-provider",
-  "status": "running",
-  "uptime": "2h15m30s",
-  "endpoints": ["/healthz", "/readyz", "/livez", "/metrics"]
-}
-```
-
-## Metrics & Observability
-
-### Prometheus Metrics
-
-The provider exposes comprehensive Prometheus metrics on `/metrics`.
-
-#### Available Metrics
-
-1. **`hyperfleet_cloud_provider_token_requests_total`** (Counter)
-   - Labels: `provider`, `status`
-   - Total number of token generation requests
-
-2. **`hyperfleet_cloud_provider_token_generation_duration_seconds`** (Histogram)
-   - Labels: `provider`
-   - Token generation duration in seconds
-
-3. **`hyperfleet_cloud_provider_token_generation_errors_total`** (Counter)
-   - Labels: `provider`, `error_type`
-   - Total number of token generation errors
-
-4. **`hyperfleet_cloud_provider_credential_validation_errors_total`** (Counter)
-   - Labels: `provider`
-   - Total number of credential validation errors
-
-5. **`hyperfleet_cloud_provider_health_check_duration_seconds`** (Histogram)
-   - Labels: `check_name`
-   - Health check duration in seconds
-
-6. **`hyperfleet_cloud_provider_health_check_errors_total`** (Counter)
-   - Labels: `check_name`
-   - Total number of health check errors
-
-#### Example PromQL Queries
-
-```promql
-# Request rate by provider
-sum(rate(hyperfleet_cloud_provider_token_requests_total[5m])) by (provider)
-
-# Success rate percentage
-(sum(rate(hyperfleet_cloud_provider_token_requests_total{status="success"}[5m])) / sum(rate(hyperfleet_cloud_provider_token_requests_total[5m]))) * 100
-
-# P95 latency
-histogram_quantile(0.95, rate(hyperfleet_cloud_provider_token_generation_duration_seconds_bucket[5m]))
-```
-
-### Kubernetes ServiceMonitor
-
-```yaml
-apiVersion: monitoring.coreos.com/v1
-kind: ServiceMonitor
-metadata:
-  name: hyperfleet-credential-provider
-spec:
-  selector:
-    matchLabels:
-      app: hyperfleet-credential-provider
-  endpoints:
-  - port: health
-    path: /metrics
-    interval: 10s
-```
-
-### OpenTelemetry Tracing
-
-Distributed tracing with OpenTelemetry for debugging and performance analysis.
-
-```bash
-# Enable tracing
-export TRACING_ENABLED=true
-export TRACING_ENDPOINT=localhost:4317
-export TRACING_SAMPLING_RATIO=0.1  # Sample 10% of traces
-```
-
-View traces in Jaeger UI at http://localhost:16686
 
 ## Development
 
 ### Prerequisites
 
 - Go 1.24+
-- Docker
+- Podman or Docker
 - Make
 
 ### Building
@@ -510,10 +318,7 @@ View traces in Jaeger UI at http://localhost:16686
 # Build binary
 make build
 
-# Build for all platforms
-make build-all
-
-# Build Docker image
+# Build container image
 make image
 
 # Run tests
@@ -528,179 +333,120 @@ make lint
 ```
 hyperfleet-credential-provider/
 ├── cmd/provider/          # Main application entry point
+│   ├── cluster/          # get-cluster-info command
+│   ├── kubeconfig/       # generate-kubeconfig command
+│   ├── token/            # get-token command
+│   └── version/          # version command
 ├── internal/
-│   ├── config/           # Configuration loading
-│   ├── provider/         # Provider implementations
-│   │   ├── gcp/         # GCP token generation
-│   │   ├── aws/         # AWS token generation
-│   │   └── azure/       # Azure token generation
-│   └── credentials/     # Credential loading
+│   ├── credentials/      # Credential loading
+│   ├── execplugin/       # ExecCredential types
+│   └── provider/         # Provider implementations
+│       ├── gcp/         # GCP token generation
+│       ├── aws/         # AWS token generation
+│       └── azure/       # Azure token generation
 ├── pkg/
 │   ├── logger/          # Structured logging
-│   ├── errors/          # Error types
-│   ├── health/          # Health check server
-│   ├── metrics/         # Prometheus metrics
-│   └── tracing/         # OpenTelemetry tracing
+│   └── errors/          # Error types
+├── examples/kubeconfig/  # Example kubeconfig files
+├── test/integration/     # Integration tests
 ├── Dockerfile           # Multi-stage Docker build
 └── Makefile            # Build automation
 ```
 
 ## Testing
 
-### Running Tests
-
 ```bash
-# Run all tests
+# Run all unit tests
 make test
 
-# Run with coverage
-make test-coverage
+# Run integration tests (requires cloud credentials)
+make test-integration
 
-# Run specific package tests
-go test -v ./pkg/metrics/...
+# Generate coverage report
+make coverage
 ```
-
-### Test Coverage
-
-Current test coverage: **>90%** across all packages
-
-- `cmd/provider`: ~85%
-- `pkg/logger`: >90%
-- `pkg/health`: >90%
-- `pkg/metrics`: >95%
-- `pkg/tracing`: >95%
-- `internal/provider/gcp`: ~85%
-- `internal/provider/aws`: ~90%
-- `internal/provider/azure`: ~90%
-
-**Total:** 193+ passing tests
 
 ## Troubleshooting
 
-### Common Issues
+### Debug Mode
 
-#### Token Generation Fails
-
-**Debug Steps:**
 ```bash
-# Test token generation manually
+# Enable debug logging
 hyperfleet-credential-provider get-token \
   --provider=gcp \
   --cluster-name=my-cluster \
   --project-id=my-project \
   --log-level=debug
 
-# Validate credentials
-hyperfleet-credential-provider validate-credentials --provider=gcp
+# Use console format for human-readable logs
+hyperfleet-credential-provider get-token \
+  --provider=gcp \
+  --cluster-name=my-cluster \
+  --project-id=my-project \
+  --log-level=debug \
+  --log-format=console
 ```
 
-#### Health Check Failures
-
-**Debug Steps:**
-```bash
-# Check health endpoint
-kubectl exec -it <pod> -- wget -O- http://localhost:8080/readyz
-
-# View logs
-kubectl logs <pod>
-```
-
-#### High Latency
-
-**Debug Steps:**
-```bash
-# Check metrics
-curl http://localhost:8080/metrics | grep duration
-
-# View traces in Jaeger UI
-# Access at http://localhost:16686
-```
-
-### Error Messages
+### Common Issues
 
 | Error | Cause | Solution |
 |-------|-------|----------|
-| `failed to load credentials` | Credential file not found or invalid | Verify file exists and permissions |
-| `failed to generate token` | Insufficient permissions or API error | Check IAM permissions |
-| `context deadline exceeded` | Network timeout or slow API | Check network connectivity |
+| `failed to load credentials` | Credential file not found | Verify file path and permissions |
+| `failed to generate token` | Insufficient IAM permissions | Check cloud provider permissions |
+| `failed to get cluster info` | Invalid cluster name/region | Verify cluster exists |
+| `context deadline exceeded` | Network timeout | Check network connectivity |
 
-### Logging
+## Security Model
 
-```bash
-# Debug level (verbose)
-export LOG_LEVEL=debug
-
-# JSON format (for production)
-export LOG_FORMAT=json
-
-# Console format (for development)
-export LOG_FORMAT=console
-```
+1. **No Credential Persistence**: Credentials are read at runtime only
+2. **Short-Lived Tokens**:
+   - GCP: 1 hour
+   - AWS: 15 minutes
+   - Azure: 1 hour
+3. **Least Privilege**: Minimal IAM permissions required
+4. **Secure Container**: Distroless base image, non-root user
 
 ## Architecture
 
-### System Overview
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                    Kubernetes Cluster                        │
-│  ┌──────────────┐         ┌──────────────┐                 │
-│  │   kubectl    │         │     Pod      │                 │
-│  └──────┬───────┘         └──────┬───────┘                 │
-│         │  Invokes               │  Invokes                 │
-│         └────────────┬───────────┘                          │
-└──────────────────────┼──────────────────────────────────────┘
-                       │
-                       ▼
-        ┌──────────────────────────────┐
-        │  hyperfleet-credential-provider   │
-        │  ┌────────────────────────┐  │
-        │  │  Provider Router       │  │
-        │  └───────┬────────────────┘  │
-        │  ┌───────┴────────┐          │
-        │  │ GCP │ AWS │ AZ │          │
-        │  └───────┬────────┘          │
-        │  ┌───────▼────────┐          │
-        │  │ Credential     │          │
-        │  │ Loader         │          │
-        │  └────────────────┘          │
-        └──────────────────────────────┘
-                       │
-                       ▼
-        ┌──────────────────────────────┐
-        │   Cloud Provider APIs        │
-        └──────────────────────────────┘
-```
-
 ### Token Generation Flow
 
-1. kubectl reads kubeconfig
-2. Detects exec plugin configuration
-3. Invokes hyperfleet-credential-provider
-4. Provider loads credentials
-5. Generates cloud-specific token
-6. Returns ExecCredential JSON
-7. kubectl uses token for API request
-
-### Security Model
-
-1. **No Credential Persistence** - Credentials read at runtime only
-2. **Short-Lived Tokens** - GCP: 1h, AWS: 15m, Azure: 1h
-3. **Least Privilege** - Minimal IAM permissions
-4. **Secure Defaults** - Non-root user, distroless image
+```
+┌─────────┐
+│ kubectl │
+└────┬────┘
+     │ 1. Reads kubeconfig
+     │ 2. Detects exec plugin
+     ▼
+┌────────────────────────────────┐
+│ hyperfleet-credential-provider │
+│  ┌──────────────────────────┐  │
+│  │ Load Credentials         │  │
+│  └──────────┬───────────────┘  │
+│  ┌──────────▼───────────────┐  │
+│  │ Generate Cloud Token     │  │
+│  │ (GCP/AWS/Azure SDK)      │  │
+│  └──────────┬───────────────┘  │
+│  ┌──────────▼───────────────┐  │
+│  │ Return ExecCredential    │  │
+│  └──────────────────────────┘  │
+└────────────┬───────────────────┘
+             │ 3. JSON output
+     ┌───────▼────────┐
+     │ kubectl        │
+     │ Uses token for │
+     │ API requests   │
+     └────────────────┘
+```
 
 ## Contributing
 
-Contributions are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-### Development Workflow
+Contributions are welcome! Please:
 
 1. Fork the repository
 2. Create a feature branch
-3. Make your changes
-4. Add tests
-5. Run tests and linter (`make check`)
-6. Open a Pull Request
+3. Make your changes with tests
+4. Run `make test lint`
+5. Submit a Pull Request
 
 ## License
 
@@ -708,12 +454,13 @@ Copyright 2026 Red Hat, Inc.
 
 Licensed under the Apache License, Version 2.0. See [LICENSE](LICENSE) for details.
 
-## Support
+## Links
 
-- **Issues:** https://github.com/openshift-hyperfleet/hyperfleet-credential-provider/issues
-- **Documentation:** See `docs/` directory
-- **Examples:** See `configs/examples/` directory
+- **GitHub**: https://github.com/openshift-hyperfleet/hyperfleet-credential-provider
+- **Issues**: https://github.com/openshift-hyperfleet/hyperfleet-credential-provider/issues
+- **Documentation**: See `docs/` directory
+- **Examples**: See `examples/kubeconfig/` directory
 
 ---
 
-**Made with ❤️ by the HyperFleet Team**
+**Part of the HyperFleet Project**

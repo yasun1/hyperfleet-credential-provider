@@ -2,12 +2,14 @@
 
 ## Overview
 
-This guide shows how to integrate `hyperfleet-credential-provider` into Prow CI workflows using a **two-stage approach**:
+This guide demonstrates how to integrate `hyperfleet-credential-provider` into Prow CI workflows using a two-stage approach:
 
-1. **Deploy Pod** - Setup phase (generates kubeconfig using single command)
-2. **Test Pod** - Testing phase (uses kubeconfig with automatic token generation)
+1. **Deploy Pod**: Generate kubeconfig using `generate-kubeconfig` command
+2. **Test Pod**: Execute tests using the generated kubeconfig
 
 ## Architecture
+
+### Prow CI Workflow
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -16,33 +18,29 @@ This guide shows how to integrate `hyperfleet-credential-provider` into Prow CI 
 │                                                              │
 │  STAGE 1: Deploy Pod (Setup)                                │
 │  ┌────────────────────────────────────────────────────────┐ │
-│  │ Container: hyperfleet-credential-provider:latest (~25MB)    │ │
+│  │ Container: hyperfleet-credential-provider (~40MB)       │ │
 │  │                                                        │ │
 │  │ 1. Read Vault-mounted credentials                     │ │
 │  │    - GCP: /vault/secrets/gcp-sa.json                  │ │
 │  │    - AWS: /vault/secrets/aws-credentials              │ │
 │  │    - Azure: /vault/secrets/azure-credentials.json     │ │
 │  │                                                        │ │
-│  │ 2. Generate kubeconfig (single command!)              │ │
-│  │    $ hyperfleet-credential-provider generate-kubeconfig \  │ │
-│  │        --provider=$PROVIDER \                          │ │
-│  │        --cluster-name=$CLUSTER \                       │ │
-│  │        --output=/workspace/kubeconfig.yaml             │ │
+│  │ 2. Generate kubeconfig                                │ │
+│  │    $ hyperfleet-credential-provider generate-kubeconfig  │ │
+│  │        --provider=$PROVIDER                           │ │
+│  │        --cluster-name=$CLUSTER                        │ │
+│  │        --credentials-file=/vault/secrets/...          │ │
+│  │        --output=/workspace/kubeconfig.yaml            │ │
 │  │                                                        │ │
-│  │    This command:                                      │ │
-│  │    ✅ Fetches cluster info via cloud SDK              │ │
-│  │    ✅ Generates kubeconfig with exec plugin           │ │
-│  │    ✅ No additional scripts needed!                   │ │
-│  │                                                        │ │
-│  │ 3. Deploy HyperFleet components (optional)            │ │
-│  │    $ kubectl apply -f manifests/                      │ │
+│  │    Fetches cluster info via cloud SDK                 │ │
+│  │    No additional scripts needed                       │ │
 │  └────────────────────────────────────────────────────────┘ │
 │                          ↓                                   │
 │              Share kubeconfig via /workspace                 │
 │                          ↓                                   │
 │  STAGE 2: Test Pod (Testing)                                │
 │  ┌────────────────────────────────────────────────────────┐ │
-│  │ Container: test-runner:latest (minimal image)          │ │
+│  │ Container: test-runner                                 │ │
 │  │                                                        │ │
 │  │ 1. Use shared kubeconfig                              │ │
 │  │    export KUBECONFIG=/workspace/kubeconfig.yaml       │ │
@@ -53,66 +51,84 @@ This guide shows how to integrate `hyperfleet-credential-provider` into Prow CI 
 │  │    $ make test-e2e                                    │ │
 │  │                                                        │ │
 │  │    Each kubectl call automatically triggers:          │ │
-│  │    → hyperfleet-credential-provider get-token              │ │
-│  │    → Fresh token generated (<300ms)                   │ │
-│  │    → No cloud CLI tools needed!                       │ │
+│  │    → hyperfleet-credential-provider get-token          │ │
+│  │    → Token generation (<2s)                           │ │
+│  │    → No cloud CLI tools needed                        │ │
 │  └────────────────────────────────────────────────────────┘ │
 └──────────────────────────────────────────────────────────────┘
 ```
 
-## Quick Start Commands
+## Quick Start
 
 ### GCP/GKE
+
 ```bash
-hyperfleet-credential-provider generate-kubeconfig \
+# Deploy Pod: Generate kubeconfig
+podman run --rm \
+  -v /vault/secrets/gcp-sa.json:/vault/secrets/gcp-sa.json:ro \
+  -v /workspace:/workspace \
+  quay.io/openshift-hyperfleet/hyperfleet-credential-provider:latest \
+  --credentials-file=/vault/secrets/gcp-sa.json \
+  generate-kubeconfig \
   --provider=gcp \
   --cluster-name=my-cluster \
   --project-id=my-project \
   --region=us-central1-a \
   --output=/workspace/kubeconfig.yaml
+
+# Test Pod: Use kubeconfig
+export KUBECONFIG=/workspace/kubeconfig.yaml
+kubectl get nodes
+kubectl get pods -A
 ```
 
 ### AWS/EKS
+
 ```bash
-hyperfleet-credential-provider generate-kubeconfig \
+# Deploy Pod: Generate kubeconfig
+podman run --rm \
+  -v /vault/secrets/aws-credentials:/vault/secrets/aws-credentials:ro \
+  -v /workspace:/workspace \
+  quay.io/openshift-hyperfleet/hyperfleet-credential-provider:latest \
+  --credentials-file=/vault/secrets/aws-credentials \
+  generate-kubeconfig \
   --provider=aws \
   --cluster-name=my-cluster \
   --region=us-east-1 \
   --output=/workspace/kubeconfig.yaml
+
+# Test Pod: Use kubeconfig
+export KUBECONFIG=/workspace/kubeconfig.yaml
+kubectl get nodes
+kubectl get pods -A
 ```
 
 ### Azure/AKS
+
 ```bash
-hyperfleet-credential-provider generate-kubeconfig \
+# Deploy Pod: Generate kubeconfig
+podman run --rm \
+  -v /vault/secrets/azure-credentials.json:/vault/secrets/azure-credentials.json:ro \
+  -v /workspace:/workspace \
+  quay.io/openshift-hyperfleet/hyperfleet-credential-provider:latest \
+  --credentials-file=/vault/secrets/azure-credentials.json \
+  generate-kubeconfig \
   --provider=azure \
   --cluster-name=my-cluster \
   --subscription-id=<subscription-id> \
   --tenant-id=<tenant-id> \
   --resource-group=my-rg \
   --output=/workspace/kubeconfig.yaml
+
+# Test Pod: Use kubeconfig
+export KUBECONFIG=/workspace/kubeconfig.yaml
+kubectl get nodes
+kubectl get pods -A
 ```
 
-## Environment Variables
+## ProwJob Configuration
 
-The `generate-kubeconfig` command automatically reads credentials from these environment variables:
-
-### GCP
-- `GOOGLE_APPLICATION_CREDENTIALS` - Path to service account JSON file
-
-### AWS
-- `AWS_ACCESS_KEY_ID` - AWS access key ID
-- `AWS_SECRET_ACCESS_KEY` - AWS secret access key
-- `AWS_CREDENTIALS_FILE` - Path to credentials file (alternative)
-
-### Azure
-- `AZURE_CLIENT_ID` - Service principal client ID
-- `AZURE_CLIENT_SECRET` - Service principal client secret
-- `AZURE_TENANT_ID` - Azure tenant ID
-- `AZURE_CREDENTIALS_FILE` - Path to credentials JSON file (alternative)
-
-## ProwJob Configuration Examples
-
-### Example 1: Simple GKE Test Job
+### Example 1: Basic GKE Test Job
 
 ```yaml
 # prow/jobs/hyperfleet-test-gke.yaml
@@ -127,18 +143,17 @@ presubmits:
       containers:
       # Deploy Pod - Generate kubeconfig
       - name: setup
-        image: ghcr.io/openshift-hyperfleet/hyperfleet-credential-provider:latest
+        image: quay.io/openshift-hyperfleet/hyperfleet-credential-provider:latest
         command:
         - hyperfleet-credential-provider
+        args:
+        - --credentials-file=/vault/secrets/gcp-sa.json
         - generate-kubeconfig
         - --provider=gcp
         - --cluster-name=hyperfleet-dev-prow
         - --project-id=hcm-hyperfleet
         - --region=us-central1-a
         - --output=/workspace/kubeconfig.yaml
-        env:
-        - name: GOOGLE_APPLICATION_CREDENTIALS
-          value: /vault/secrets/gcp-sa.json
         volumeMounts:
         - name: workspace
           mountPath: /workspace
@@ -179,6 +194,7 @@ presubmits:
 # prow/jobs/hyperfleet-test-multicloud.yaml
 presubmits:
   openshift-hyperfleet/hyperfleet:
+
   # GCP Test
   - name: pull-hyperfleet-e2e-gke
     always_run: true
@@ -188,27 +204,24 @@ presubmits:
     spec:
       containers:
       - name: setup
-        image: ghcr.io/openshift-hyperfleet/hyperfleet-credential-provider:latest
-        command:
-        - hyperfleet-credential-provider
+        image: quay.io/openshift-hyperfleet/hyperfleet-credential-provider:latest
+        command: [hyperfleet-credential-provider]
+        args:
+        - --credentials-file=/vault/secrets/gcp-sa.json
         - generate-kubeconfig
         - --provider=gcp
         - --cluster-name=hyperfleet-dev-prow
         - --project-id=hcm-hyperfleet
         - --region=us-central1-a
         - --output=/workspace/kubeconfig.yaml
-        env:
-        - name: GOOGLE_APPLICATION_CREDENTIALS
-          value: /vault/secrets/gcp-sa.json
         volumeMounts:
         - {name: workspace, mountPath: /workspace}
-        - {name: vault-secrets, mountPath: /vault/secrets}
+        - {name: vault-secrets, mountPath: /vault/secrets, readOnly: true}
       - name: test
         image: gcr.io/k8s-prow/test-runner:latest
         command: ["/test/run-e2e-tests.sh"]
         env:
-        - name: KUBECONFIG
-          value: /workspace/kubeconfig.yaml
+        - {name: KUBECONFIG, value: /workspace/kubeconfig.yaml}
         volumeMounts:
         - {name: workspace, mountPath: /workspace}
       volumes:
@@ -224,26 +237,23 @@ presubmits:
     spec:
       containers:
       - name: setup
-        image: ghcr.io/openshift-hyperfleet/hyperfleet-credential-provider:latest
-        command:
-        - hyperfleet-credential-provider
+        image: quay.io/openshift-hyperfleet/hyperfleet-credential-provider:latest
+        command: [hyperfleet-credential-provider]
+        args:
+        - --credentials-file=/vault/secrets/aws-credentials
         - generate-kubeconfig
         - --provider=aws
         - --cluster-name=hyperfleet-dev-eks
         - --region=us-east-1
         - --output=/workspace/kubeconfig.yaml
-        env:
-        - name: AWS_CREDENTIALS_FILE
-          value: /vault/secrets/aws-credentials
         volumeMounts:
         - {name: workspace, mountPath: /workspace}
-        - {name: vault-secrets, mountPath: /vault/secrets}
+        - {name: vault-secrets, mountPath: /vault/secrets, readOnly: true}
       - name: test
         image: gcr.io/k8s-prow/test-runner:latest
         command: ["/test/run-e2e-tests.sh"]
         env:
-        - name: KUBECONFIG
-          value: /workspace/kubeconfig.yaml
+        - {name: KUBECONFIG, value: /workspace/kubeconfig.yaml}
         volumeMounts:
         - {name: workspace, mountPath: /workspace}
       volumes:
@@ -259,9 +269,10 @@ presubmits:
     spec:
       containers:
       - name: setup
-        image: ghcr.io/openshift-hyperfleet/hyperfleet-credential-provider:latest
-        command:
-        - hyperfleet-credential-provider
+        image: quay.io/openshift-hyperfleet/hyperfleet-credential-provider:latest
+        command: [hyperfleet-credential-provider]
+        args:
+        - --credentials-file=/vault/secrets/azure-credentials.json
         - generate-kubeconfig
         - --provider=azure
         - --cluster-name=hyperfleet-dev-aks
@@ -270,8 +281,6 @@ presubmits:
         - --resource-group=hyperfleet-rg
         - --output=/workspace/kubeconfig.yaml
         env:
-        - name: AZURE_CREDENTIALS_FILE
-          value: /vault/secrets/azure-credentials.json
         - name: AZURE_SUBSCRIPTION_ID
           valueFrom:
             secretKeyRef:
@@ -284,13 +293,12 @@ presubmits:
               key: tenant-id
         volumeMounts:
         - {name: workspace, mountPath: /workspace}
-        - {name: vault-secrets, mountPath: /vault/secrets}
+        - {name: vault-secrets, mountPath: /vault/secrets, readOnly: true}
       - name: test
         image: gcr.io/k8s-prow/test-runner:latest
         command: ["/test/run-e2e-tests.sh"]
         env:
-        - name: KUBECONFIG
-          value: /workspace/kubeconfig.yaml
+        - {name: KUBECONFIG, value: /workspace/kubeconfig.yaml}
         volumeMounts:
         - {name: workspace, mountPath: /workspace}
       volumes:
@@ -313,21 +321,19 @@ presubmits:
       containers:
       # Step 1: Generate kubeconfig
       - name: setup
-        image: ghcr.io/openshift-hyperfleet/hyperfleet-credential-provider:latest
-        command:
-        - hyperfleet-credential-provider
+        image: quay.io/openshift-hyperfleet/hyperfleet-credential-provider:latest
+        command: [hyperfleet-credential-provider]
+        args:
+        - --credentials-file=/vault/secrets/gcp-sa.json
         - generate-kubeconfig
         - --provider=gcp
         - --cluster-name=hyperfleet-dev-prow
         - --project-id=hcm-hyperfleet
         - --region=us-central1-a
         - --output=/workspace/kubeconfig.yaml
-        env:
-        - name: GOOGLE_APPLICATION_CREDENTIALS
-          value: /vault/secrets/gcp-sa.json
         volumeMounts:
         - {name: workspace, mountPath: /workspace}
-        - {name: vault-secrets, mountPath: /vault/secrets}
+        - {name: vault-secrets, mountPath: /vault/secrets, readOnly: true}
 
       # Step 2: Deploy HyperFleet
       - name: deploy
@@ -346,7 +352,7 @@ presubmits:
           kubectl wait --for=condition=available --timeout=300s \
             deployment --all -n hyperfleet-system
 
-          echo "✅ Deployment complete"
+          echo "Deployment complete"
           kubectl get pods -n hyperfleet-system
         volumeMounts:
         - {name: workspace, mountPath: /workspace}
@@ -366,16 +372,13 @@ presubmits:
         - {name: workspace, mountPath: /workspace}
 
       volumes:
-      - name: workspace
-        emptyDir: {}
-      - name: vault-secrets
-        secret:
-          secretName: hyperfleet-gcp-credentials
+      - {name: workspace, emptyDir: {}}
+      - {name: vault-secrets, secret: {secretName: hyperfleet-gcp-credentials}}
 ```
 
 ## Credentials Configuration
 
-### Option 1: Kubernetes Secrets
+### Kubernetes Secrets
 
 ```yaml
 # GCP Credentials
@@ -411,15 +414,15 @@ data:
   azure-credentials.json: <base64-encoded-azure-credentials-file>
 ```
 
-### Option 2: Vault Integration (Recommended)
+### Vault Integration (Recommended)
 
-If using Vault for secret management, ensure the Deploy Pod has access to mount secrets at:
-
+Mount secrets at:
 - GCP: `/vault/secrets/gcp-sa.json`
 - AWS: `/vault/secrets/aws-credentials`
 - Azure: `/vault/secrets/azure-credentials.json`
 
 Example Vault annotations:
+
 ```yaml
 annotations:
   vault.hashicorp.com/agent-inject: "true"
@@ -431,13 +434,11 @@ annotations:
   vault.hashicorp.com/role: "hyperfleet-prow"
 ```
 
-## Test Pod Examples
-
-### Simple Test Script
+## Test Script Example
 
 ```bash
 #!/bin/bash
-# Test Pod - Run E2E Tests
+# Test Pod - E2E Tests
 
 set -e
 
@@ -454,7 +455,7 @@ echo ""
 echo "Step 1: Verifying cluster access..."
 kubectl cluster-info
 kubectl get nodes -o wide
-echo "✅ Cluster access verified"
+echo "Cluster access verified"
 
 # Run tests
 echo ""
@@ -464,7 +465,7 @@ go test -v ./test/e2e/... -timeout=30m
 
 echo ""
 echo "=========================================="
-echo "✅ All tests passed!"
+echo "All tests passed"
 echo "=========================================="
 ```
 
@@ -472,14 +473,18 @@ echo "=========================================="
 
 ### Deploy Pod (Setup)
 
-**Purpose:** Generate kubeconfig for cluster access
-**Image:** `hyperfleet-credential-provider:latest` (~25MB)
-**Runs:** Once per test workflow
-**Outputs:** `kubeconfig.yaml` to shared volume
+| Attribute | Value |
+|-----------|-------|
+| **Purpose** | Generate kubeconfig for cluster access |
+| **Image** | `quay.io/openshift-hyperfleet/hyperfleet-credential-provider:latest` (~40MB) |
+| **Frequency** | Once per test workflow |
+| **Output** | `kubeconfig.yaml` to shared volume |
 
 **Command:**
 ```bash
-hyperfleet-credential-provider generate-kubeconfig \
+hyperfleet-credential-provider \
+  --credentials-file=/vault/secrets/... \
+  generate-kubeconfig \
   --provider=<gcp|aws|azure> \
   --cluster-name=<cluster> \
   --output=/workspace/kubeconfig.yaml \
@@ -488,60 +493,86 @@ hyperfleet-credential-provider generate-kubeconfig \
 
 ### Test Pod (Testing)
 
-**Purpose:** Run tests against cluster
-**Image:** Your test image (minimal, no cloud CLIs needed)
-**Runs:** After Deploy Pod completes
-**Uses:** `kubeconfig.yaml` from shared volume
+| Attribute | Value |
+|-----------|-------|
+| **Purpose** | Run tests against cluster |
+| **Image** | Your test image (no cloud CLIs needed) |
+| **Frequency** | After Deploy Pod completes |
+| **Input** | `kubeconfig.yaml` from shared volume |
 
-**Key Steps:**
+**Steps:**
 1. Set `KUBECONFIG=/workspace/kubeconfig.yaml`
 2. Run kubectl commands (auto-calls `get-token`)
-3. Run test suite
+3. Execute test suite
 4. Report results
 
 ### Benefits
 
-✅ **No CLI tools in Test Pod** - Only `kubectl` needed
-✅ **Single command setup** - Just `generate-kubeconfig`
-✅ **Unified approach** - Same workflow for GCP, AWS, Azure
-✅ **Small images** - Deploy: ~25MB, Test: depends on tests
-✅ **Fast token generation** - <300ms per kubectl command
-✅ **Secure** - Vault-mounted credentials, no hardcoding
+- **No CLI Tools in Test Pod**: Only `kubectl` required
+- **Single Command Setup**: Just `generate-kubeconfig`
+- **Unified Approach**: Same workflow for GCP, AWS, Azure
+- **Small Images**: Deploy ~40MB, Test depends on your tests
+- **Fast Token Generation**: <2 seconds per kubectl command
+- **Secure**: Vault-mounted credentials, no hardcoding
 
 ## Troubleshooting
 
 ### Issue: "Failed to get cluster info"
 
-**Solution:** Verify credentials are mounted correctly and have sufficient permissions.
+**Solution**: Verify credentials are mounted correctly and have sufficient permissions.
 
 ```bash
 # Check if credentials exist
 ls -la /vault/secrets/
 
-# Test credentials manually
-hyperfleet-credential-provider validate-credentials --provider=gcp
+# Test credential loading
+hyperfleet-credential-provider get-cluster-info \
+  --provider=gcp \
+  --cluster-name=my-cluster \
+  --project-id=my-project \
+  --region=us-central1 \
+  --credentials-file=/vault/secrets/gcp-sa.json \
+  --log-level=debug
 ```
 
 ### Issue: "kubectl: exec plugin failed"
 
-**Solution:** Check that `hyperfleet-credential-provider` binary is in PATH in the Test Pod.
+**Solution**: Ensure `hyperfleet-credential-provider` binary is in PATH.
 
 ```bash
-# Verify binary exists
+# Verify binary exists in Test Pod
 which hyperfleet-credential-provider
 
-# Check exec plugin logs (logs go to stderr)
+# Check exec plugin logs (stderr)
 kubectl get nodes 2>&1 | grep -i error
+```
+
+### Issue: "context deadline exceeded"
+
+**Solution**: Check network connectivity and timeout settings.
+
+```bash
+# Increase timeout
+kubectl get nodes --request-timeout=30s
+
+# Check logs with debug level
+hyperfleet-credential-provider get-token \
+  --provider=gcp \
+  --cluster-name=my-cluster \
+  --project-id=my-project \
+  --log-level=debug
 ```
 
 ## Next Steps
 
-1. Build and push the `hyperfleet-credential-provider` image
+1. Build and push `hyperfleet-credential-provider` image
 2. Create Kubernetes Secrets or configure Vault
-3. Update your ProwJob configurations
+3. Update ProwJob configurations
 4. Test with a simple job first
 5. Roll out to all jobs
 
-For detailed examples, see the [examples/kubeconfig/](../examples/kubeconfig/) directory.
+## Additional Resources
 
-For questions, see the main [README.md](../README.md) or open an issue.
+- [Main README](../README.md)
+- [Example Kubeconfig Files](../examples/kubeconfig/)
+- [GitHub Issues](https://github.com/openshift-hyperfleet/hyperfleet-credential-provider/issues)
