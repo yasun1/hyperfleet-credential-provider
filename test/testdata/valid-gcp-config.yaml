@@ -1,0 +1,24 @@
+log:
+  level: info
+  format: json
+
+provider:
+  name: gcp
+  cluster_name: my-gke-cluster
+  region: us-central1
+  timeout: 30s
+  gcp:
+    project_id: my-project
+    credentials_file: /vault/secrets/gcp-sa.json
+    token_duration: 3600s
+
+health:
+  enabled: true
+  port: 8080
+  readiness_path: /readyz
+  liveness_path: /healthz
+
+metrics:
+  enabled: true
+  port: 8080
+  path: /metrics

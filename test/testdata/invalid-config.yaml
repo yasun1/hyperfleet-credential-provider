@@ -1,0 +1,7 @@
+log:
+  level: invalid
+  format: json
+
+provider:
+  name: unsupported
+  cluster_name: ""

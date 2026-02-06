@@ -1,0 +1,149 @@
+run:
+  timeout: 5m
+  issues-exit-code: 1
+  tests: true
+  modules-download-mode: readonly
+
+output:
+  format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
+
+linters:
+  enable:
+    - errcheck        # Check for unchecked errors
+    - gosimple        # Simplify code
+    - govet           # Reports suspicious constructs
+    - ineffassign     # Detect ineffectual assignments
+    - staticcheck     # Static analysis
+    - unused          # Check for unused code
+    - gofmt           # Check formatting
+    - goimports       # Check imports formatting
+    - misspell        # Check for misspelled words
+    - revive          # Drop-in replacement for golint
+    - gosec           # Security issues
+    - goconst         # Repeated strings that could be constants
+    - gocyclo         # Cyclomatic complexity
+    - unconvert       # Unnecessary type conversions
+    - dupl            # Code duplication
+    - prealloc        # Slice preallocation
+    - exportloopref   # Checks for pointers to loop variables
+    - nolintlint      # Reports ill-formed nolint directives
+    - errorlint       # Error wrapping issues
+    - bodyclose       # HTTP response body closure
+    - contextcheck    # Context usage
+    - cyclop          # Package cyclomatic complexity
+    - gci             # Import ordering
+    - godot           # Comment formatting
+    - goprintffuncname # Printf-like function naming
+    - nilerr          # Return nil error checks
+    - nilnil          # Return nil checks
+    - tenv            # t.Setenv usage
+    - tparallel       # t.Parallel usage
+
+  disable:
+    - exhaustive      # Too strict for switch statements
+    - exhaustruct     # Too strict for struct initialization
+    - funlen          # Function length - handled by gocyclo
+    - lll             # Line length - not enforced
+    - wrapcheck       # Too noisy for error wrapping
+    - nlreturn        # Too opinionated
+    - wsl             # Too opinionated on whitespace
+
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+    exclude-functions:
+      - (io.Closer).Close
+      - (*database/sql.Rows).Close
+
+  govet:
+    enable-all: true
+    disable:
+      - shadow  # Too many false positives
+
+  gocyclo:
+    min-complexity: 15
+
+  dupl:
+    threshold: 100
+
+  misspell:
+    locale: US
+    ignore-words:
+      - kubernetes
+      - kubeconfig
+
+  revive:
+    confidence: 0.8
+    rules:
+      - name: blank-imports
+      - name: context-as-argument
+      - name: context-keys-type
+      - name: dot-imports
+      - name: error-return
+      - name: error-strings
+      - name: error-naming
+      - name: exported
+      - name: if-return
+      - name: increment-decrement
+      - name: var-naming
+      - name: var-declaration
+      - name: package-comments
+      - name: range
+      - name: receiver-naming
+      - name: time-naming
+      - name: unexported-return
+      - name: indent-error-flow
+      - name: errorf
+      - name: empty-block
+      - name: superfluous-else
+      - name: unused-parameter
+      - name: unreachable-code
+      - name: redefines-builtin-id
+
+  gosec:
+    excludes:
+      - G104  # Audit errors not checked (covered by errcheck)
+    severity: medium
+    confidence: medium
+
+  gci:
+    sections:
+      - standard
+      - default
+      - prefix(github.com/openshift-hyperfleet/hyperfleet-cloud-provider)
+    skip-generated: true
+
+issues:
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+  exclude-rules:
+    # Exclude some linters from test files
+    - path: _test\.go
+      linters:
+        - gocyclo
+        - errcheck
+        - dupl
+        - gosec
+        - goconst
+
+    # Exclude version variable in main
+    - path: cmd/provider/main\.go
+      text: "Version is a global variable"
+
+    # Allow globals for logger initialization
+    - path: pkg/logger/
+      text: "(G101|G104)"
+
+  exclude-dirs:
+    - vendor
+    - bin
+    - .git
+
+  exclude-files:
+    - ".*\\.pb\\.go$"
+    - ".*_gen\\.go$"

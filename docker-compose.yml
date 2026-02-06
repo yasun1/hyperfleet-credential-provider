@@ -1,0 +1,78 @@
+# Docker Compose for HyperFleet Cloud Provider development and testing
+version: '3.8'
+
+services:
+  # Main service
+  hyperfleet-cloud-provider:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VERSION: ${VERSION:-dev}
+        COMMIT: ${COMMIT:-unknown}
+        BUILD_TIME: ${BUILD_TIME:-unknown}
+    image: ghcr.io/openshift-hyperfleet/hyperfleet-cloud-provider:${VERSION:-dev}
+    container_name: hyperfleet-cloud-provider
+    # Override entrypoint for development
+    entrypoint: ["/usr/local/bin/hyperfleet-cloud-provider"]
+    command: ["--help"]
+    # Mount credentials for testing
+    volumes:
+      # GCP credentials
+      - ${GOOGLE_APPLICATION_CREDENTIALS:-./credentials/gcp-sa.json}:/vault/secrets/gcp-sa.json:ro
+      # AWS credentials (alternative: use environment variables)
+      - ${AWS_SHARED_CREDENTIALS_FILE:-./credentials/aws-credentials}:/vault/secrets/aws-credentials:ro
+      # Azure credentials (alternative: use environment variables)
+      - ${AZURE_CONFIG_DIR:-./credentials/azure}:/vault/secrets/azure:ro
+      # Kubeconfig examples
+      - ./configs:/configs:ro
+    environment:
+      # GCP
+      - GOOGLE_APPLICATION_CREDENTIALS=/vault/secrets/gcp-sa.json
+      # AWS
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+      - AWS_SESSION_TOKEN=${AWS_SESSION_TOKEN:-}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      # Azure
+      - AZURE_CLIENT_ID=${AZURE_CLIENT_ID:-}
+      - AZURE_CLIENT_SECRET=${AZURE_CLIENT_SECRET:-}
+      - AZURE_TENANT_ID=${AZURE_TENANT_ID:-}
+      - AZURE_SUBSCRIPTION_ID=${AZURE_SUBSCRIPTION_ID:-}
+      # Logging
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LOG_FORMAT=${LOG_FORMAT:-json}
+    # Security context
+    user: "65532:65532"  # nonroot user
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  # Test service - demonstrates usage with kubectl
+  kubectl-test:
+    image: bitnami/kubectl:latest
+    container_name: kubectl-test
+    depends_on:
+      - hyperfleet-cloud-provider
+    volumes:
+      # Mount kubeconfig with exec plugin
+      - ./configs/examples:/kubeconfig:ro
+      # Mount credentials
+      - ${GOOGLE_APPLICATION_CREDENTIALS:-./credentials/gcp-sa.json}:/vault/secrets/gcp-sa.json:ro
+    environment:
+      - KUBECONFIG=/kubeconfig/kubeconfig-gcp.yaml
+      - GOOGLE_APPLICATION_CREDENTIALS=/vault/secrets/gcp-sa.json
+    # Keep container running for testing
+    command: ["sleep", "infinity"]
+
+# Named volumes (optional)
+volumes:
+  credentials:
+    driver: local
+
+# Networks (optional)
+networks:
+  default:
+    name: hyperfleet-network
