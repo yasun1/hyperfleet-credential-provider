@@ -50,13 +50,26 @@ Examples:
 	cmd.Flags().StringVar(&outputFile, "output", "", "Output file path (default: stdout)")
 	cmd.Flags().StringVar(&flags.TokenDuration, "token-duration", "", "Token duration (e.g., 1h, 30m, 900s) (default: GCP=1h, AWS=15m, Azure=1h)")
 
-	cmd.MarkFlagRequired("provider")
-	cmd.MarkFlagRequired("cluster-name")
+	// Bind flags to viper for environment variable support
+	common.BindCommandFlags(cmd)
+
+	// Note: We don't use MarkFlagRequired because Cobra validates before Viper bindings take effect
+	// Instead, we validate in the run function after BindFlagsToViper is called
 
 	return cmd
 }
 
 func run(flags *common.Flags) error {
+	// Bind Viper values to flags (environment variables take precedence if flags not set)
+	common.BindFlagsToViper(flags)
+
+	if flags.ProviderName == "" {
+		return fmt.Errorf("--provider is required (or set HFCP_PROVIDER)")
+	}
+	if flags.ClusterName == "" {
+		return fmt.Errorf("--cluster-name is required (or set HFCP_CLUSTER_NAME)")
+	}
+
 	ctx, cancel := common.SetupSignalHandler()
 	defer cancel()
 

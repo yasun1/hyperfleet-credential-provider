@@ -70,7 +70,6 @@ func (p *Provider) GetClusterInfo(ctx context.Context, clusterName, location str
 		logger.String("resource_name", name),
 	)
 
-	// Get cluster details
 	cluster, err := svc.Projects.Locations.Clusters.Get(name).Context(ctx).Do()
 	if err != nil {
 		p.logger.Error("Failed to get cluster info",
@@ -81,7 +80,6 @@ func (p *Provider) GetClusterInfo(ctx context.Context, clusterName, location str
 		return nil, fmt.Errorf("failed to get cluster info: %w", err)
 	}
 
-	// Validate cluster data
 	if cluster.Endpoint == "" {
 		return nil, fmt.Errorf("cluster endpoint is empty")
 	}

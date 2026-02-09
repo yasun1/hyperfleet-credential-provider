@@ -39,12 +39,10 @@ func (f *Factory) CreateFromConfig(ctx context.Context, cfg *config.Config) (Pro
 		).WithField("provider", cfg.Provider.Name)
 	}
 
-	// Validate provider-specific configuration
 	if err := f.validateProviderConfig(cfg); err != nil {
 		return nil, err
 	}
 
-	// Create the provider
 	provider, err := f.registry.Create(ctx, providerName)
 	if err != nil {
 		return nil, err
@@ -113,7 +111,6 @@ func (f *Factory) validateProviderConfig(cfg *config.Config) error {
 	return nil
 }
 
-// Create creates a provider by name
 func (f *Factory) Create(ctx context.Context, name ProviderName) (Provider, error) {
 	return f.registry.Create(ctx, name)
 }

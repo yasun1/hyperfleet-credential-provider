@@ -156,6 +156,81 @@ hyperfleet-credential-provider get-cluster-info \
   --region=us-central1
 ```
 
+## Environment Variables
+
+All command-line flags can be set via environment variables using the prefix `HFCP_` followed by the flag name in uppercase with hyphens replaced by underscores.
+
+**Priority order:** Command-line flags > Environment variables > Default values
+
+### Supported Environment Variables
+
+| Environment Variable | Flag Equivalent | Description |
+|---------------------|----------------|-------------|
+| `HFCP_LOG_LEVEL` | `--log-level` | Log level (debug, info, warn, error) |
+| `HFCP_LOG_FORMAT` | `--log-format` | Log format (json, console) |
+| `HFCP_CREDENTIALS_FILE` | `--credentials-file` | Path to credentials file |
+| `HFCP_PROVIDER` | `--provider` | Cloud provider (gcp, aws, azure) |
+| `HFCP_CLUSTER_NAME` | `--cluster-name` | Cluster name |
+| `HFCP_REGION` | `--region` | Cloud region/location |
+| `HFCP_PROJECT_ID` | `--project-id` | GCP project ID |
+| `HFCP_ACCOUNT_ID` | `--account-id` | AWS account ID |
+| `HFCP_SUBSCRIPTION_ID` | `--subscription-id` | Azure subscription ID |
+| `HFCP_TENANT_ID` | `--tenant-id` | Azure tenant ID |
+| `HFCP_RESOURCE_GROUP` | `--resource-group` | Azure resource group |
+| `HFCP_TOKEN_DURATION` | `--token-duration` | Token duration (e.g., 1h, 30m) |
+
+### Examples
+
+**Using only environment variables:**
+
+```bash
+export HFCP_PROVIDER=gcp
+export HFCP_CLUSTER_NAME=my-cluster
+export HFCP_PROJECT_ID=my-project
+export HFCP_REGION=us-central1
+export HFCP_CREDENTIALS_FILE=/path/to/gcp-sa.json
+
+# All flags are set via environment variables
+hyperfleet-credential-provider generate-kubeconfig --output=kubeconfig.yaml
+```
+
+**Mixing environment variables and flags:**
+
+```bash
+# Set common values via environment variables
+export HFCP_PROVIDER=gcp
+export HFCP_CREDENTIALS_FILE=/path/to/gcp-sa.json
+
+# Override or add specific values via flags
+hyperfleet-credential-provider generate-kubeconfig \
+  --cluster-name=my-cluster \
+  --project-id=my-project \
+  --region=us-central1 \
+  --output=kubeconfig.yaml
+```
+
+**Container environment (Prow CI):**
+
+```yaml
+containers:
+- name: setup
+  image: quay.io/openshift-hyperfleet/hyperfleet-credential-provider:latest
+  env:
+  - name: HFCP_PROVIDER
+    value: gcp
+  - name: HFCP_PROJECT_ID
+    value: my-project
+  - name: HFCP_REGION
+    value: us-central1
+  - name: HFCP_CREDENTIALS_FILE
+    value: /vault/secrets/gcp-sa.json
+  command:
+  - hyperfleet-credential-provider
+  - generate-kubeconfig
+  - --cluster-name=my-cluster
+  - --output=/workspace/kubeconfig.yaml
+```
+
 ## Configuration
 
 ### Google Cloud Platform (GKE)

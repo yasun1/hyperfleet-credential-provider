@@ -23,7 +23,6 @@ func (v *Validator) ValidateExecCredential(cred *ExecCredential) error {
 		)
 	}
 
-	// Validate API version
 	if cred.TypeMeta.APIVersion != "client.authentication.k8s.io/v1" &&
 		cred.TypeMeta.APIVersion != "client.authentication.k8s.io/v1beta1" {
 		return errors.New(
@@ -33,7 +32,6 @@ func (v *Validator) ValidateExecCredential(cred *ExecCredential) error {
 			WithDetail("expected client.authentication.k8s.io/v1")
 	}
 
-	// Validate kind
 	if cred.TypeMeta.Kind != "ExecCredential" {
 		return errors.New(
 			errors.ErrExecPluginInvalidOutput,
@@ -42,7 +40,6 @@ func (v *Validator) ValidateExecCredential(cred *ExecCredential) error {
 			WithDetail("expected ExecCredential")
 	}
 
-	// Validate status
 	if cred.Status == nil {
 		return errors.New(
 			errors.ErrExecPluginInvalidOutput,
@@ -50,7 +47,6 @@ func (v *Validator) ValidateExecCredential(cred *ExecCredential) error {
 		)
 	}
 
-	// Validate token
 	if cred.Status.Token == "" {
 		return errors.New(
 			errors.ErrExecPluginInvalidOutput,
@@ -58,7 +54,6 @@ func (v *Validator) ValidateExecCredential(cred *ExecCredential) error {
 		)
 	}
 
-	// Validate expiration timestamp (if present)
 	if cred.Status.ExpirationTimestamp != nil {
 		expiresAt := cred.Status.ExpirationTimestamp.Time
 		if expiresAt.Before(time.Now()) {

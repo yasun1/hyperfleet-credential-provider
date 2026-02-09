@@ -124,6 +124,8 @@ func TestProvider_GetToken(t *testing.T) {
 
 	log := logger.Nop()
 
+	// Note: Only testing error cases here. Success cases that require real Google API
+	// calls are tested in integration tests.
 	tests := []struct {
 		name        string
 		config      *Config
@@ -131,21 +133,6 @@ func TestProvider_GetToken(t *testing.T) {
 		wantErr     bool
 		wantErrCode errors.ErrorCode
 	}{
-		{
-			name: "valid token request",
-			config: &Config{
-				ProjectID:       "test-project",
-				CredentialsFile: saFile,
-				TokenDuration:   1 * time.Hour,
-				Scopes:          DefaultScopes(),
-			},
-			opts: provider.GetTokenOptions{
-				ClusterName: "test-cluster",
-				ProjectID:   "test-project",
-				Region:      "us-central1",
-			},
-			wantErr: false, // May error in test env without real credentials
-		},
 		{
 			name: "missing cluster name",
 			config: &Config{
@@ -162,20 +149,6 @@ func TestProvider_GetToken(t *testing.T) {
 			wantErrCode: errors.ErrInvalidArgument,
 		},
 		{
-			name: "project id from config",
-			config: &Config{
-				ProjectID:       "config-project",
-				CredentialsFile: saFile,
-				TokenDuration:   1 * time.Hour,
-				Scopes:          DefaultScopes(),
-			},
-			opts: provider.GetTokenOptions{
-				ClusterName: "test-cluster",
-				// ProjectID not specified, should use config
-			},
-			wantErr: false, // May error in test env
-		},
-		{
 			name: "missing credentials file",
 			config: &Config{
 				ProjectID:       "test-project",
@@ -187,7 +160,8 @@ func TestProvider_GetToken(t *testing.T) {
 				ClusterName: "test-cluster",
 				ProjectID:   "test-project",
 			},
-			wantErr: true,
+			wantErr:     true,
+			wantErrCode: errors.ErrCredentialLoadFailed,
 		},
 	}
 
@@ -198,26 +172,12 @@ func TestProvider_GetToken(t *testing.T) {
 
 			token, err := gcpProvider.GetToken(context.Background(), tt.opts)
 
-			if tt.wantErr {
-				assert.Error(t, err)
-				if tt.wantErrCode != "" {
-					assert.True(t, errors.Is(err, tt.wantErrCode),
-						"expected error code %s, got %v", tt.wantErrCode, err)
-				}
-				assert.Nil(t, token)
-			} else {
-				// In test environment without real GCP credentials, we expect failure
-				// This is okay - integration tests will verify with real credentials
-				if err != nil {
-					t.Logf("Expected error in test environment: %v", err)
-					return
-				}
-				assert.NoError(t, err)
-				require.NotNil(t, token)
-				assert.NotEmpty(t, token.AccessToken)
-				assert.Equal(t, "Bearer", token.TokenType)
-				assert.False(t, token.IsExpired())
+			assert.Error(t, err)
+			if tt.wantErrCode != "" {
+				assert.True(t, errors.Is(err, tt.wantErrCode),
+					"expected error code %s, got %v", tt.wantErrCode, err)
 			}
+			assert.Nil(t, token)
 		})
 	}
 }
@@ -252,22 +212,13 @@ func TestProvider_ValidateCredentials(t *testing.T) {
 
 	log := logger.Nop()
 
+	// Note: Only testing error cases here. Success cases that require real Google API
+	// calls are tested in integration tests.
 	tests := []struct {
 		name        string
 		config      *Config
-		wantErr     bool
 		wantErrCode errors.ErrorCode
 	}{
-		{
-			name: "valid credentials",
-			config: &Config{
-				ProjectID:       "test-project",
-				CredentialsFile: saFile,
-				TokenDuration:   1 * time.Hour,
-				Scopes:          DefaultScopes(),
-			},
-			wantErr: false, // May error without real credentials
-		},
 		{
 			name: "missing credentials file",
 			config: &Config{
@@ -276,7 +227,6 @@ func TestProvider_ValidateCredentials(t *testing.T) {
 				TokenDuration:   1 * time.Hour,
 				Scopes:          DefaultScopes(),
 			},
-			wantErr:     true,
 			wantErrCode: errors.ErrCredentialValidationFailed,
 		},
 		{
@@ -287,7 +237,6 @@ func TestProvider_ValidateCredentials(t *testing.T) {
 				TokenDuration:   1 * time.Hour,
 				Scopes:          DefaultScopes(),
 			},
-			wantErr:     true,
 			wantErrCode: errors.ErrCredentialValidationFailed,
 		},
 		{
@@ -298,7 +247,6 @@ func TestProvider_ValidateCredentials(t *testing.T) {
 				TokenDuration:   1 * time.Hour,
 				Scopes:          DefaultScopes(),
 			},
-			wantErr:     true,
 			wantErrCode: errors.ErrCredentialInvalid,
 		},
 	}
@@ -310,21 +258,9 @@ func TestProvider_ValidateCredentials(t *testing.T) {
 
 			err = gcpProvider.ValidateCredentials(context.Background())
 
-			if tt.wantErr {
-				assert.Error(t, err)
-				if tt.wantErrCode != "" {
-					assert.True(t, errors.Is(err, tt.wantErrCode),
-						"expected error code %s, got %v", tt.wantErrCode, err)
-				}
-			} else {
-				// In test environment without real GCP credentials, we expect failure
-				// This is okay - integration tests will verify with real credentials
-				if err != nil {
-					t.Logf("Expected error in test environment: %v", err)
-					return
-				}
-				assert.NoError(t, err)
-			}
+			assert.Error(t, err)
+			assert.True(t, errors.Is(err, tt.wantErrCode),
+				"expected error code %s, got %v", tt.wantErrCode, err)
 		})
 	}
 }

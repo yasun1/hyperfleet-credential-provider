@@ -57,7 +57,6 @@ func Load(opts ...LoadOption) (*Config, error) {
 		config.Merge(envConfig)
 	}
 
-	// Validate final configuration
 	if err := Validate(config); err != nil {
 		return nil, err
 	}

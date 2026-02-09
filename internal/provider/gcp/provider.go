@@ -52,7 +52,6 @@ func (p *Provider) GetToken(ctx context.Context, opts provider.GetTokenOptions) 
 		).WithField("provider", "gcp")
 	}
 
-	// Use project ID from options if provided, otherwise use config
 	if opts.ProjectID == "" {
 		opts.ProjectID = p.config.ProjectID
 	}
@@ -121,7 +120,6 @@ func (p *Provider) ValidateCredentials(ctx context.Context) error {
 		).WithField("provider", "gcp")
 	}
 
-	// Validate the test token
 	if err := p.tokenGenerator.ValidateToken(token); err != nil {
 		return errors.Wrap(
 			errors.ErrCredentialValidationFailed,

@@ -30,10 +30,8 @@ func (w *OutputWriter) WriteToken(token *provider.Token) error {
 		)
 	}
 
-	// Create ExecCredential response
 	execCred := NewExecCredential(token.AccessToken, token.ExpiresAt)
 
-	// Validate before writing
 	if err := execCred.Validate(); err != nil {
 		return errors.Wrap(
 			errors.ErrExecPluginInvalidOutput,
@@ -61,7 +59,6 @@ func (w *OutputWriter) WriteToken(token *provider.Token) error {
 		)
 	}
 
-	// Add newline for readability
 	if _, err := w.writer.Write([]byte("\n")); err != nil {
 		return errors.Wrap(
 			errors.ErrExecPluginFailed,

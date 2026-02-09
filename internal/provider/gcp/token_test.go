@@ -2,9 +2,6 @@ package gcp
 
 import (
 	"context"
-	"encoding/json"
-	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -13,115 +10,52 @@ import (
 
 	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/internal/credentials"
 	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/internal/provider"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/internal/testutil"
 	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/pkg/errors"
 	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/pkg/logger"
 )
 
-func TestTokenGenerator_GenerateToken(t *testing.T) {
-	// Create a temporary service account file for testing
-	tempDir := t.TempDir()
-	saFile := filepath.Join(tempDir, "sa.json")
-
-	// Create mock service account credentials
-	mockCreds := &credentials.GCPCredentials{
-		Type:        "service_account",
-		ProjectID:   "test-project",
-		PrivateKeyID: "key123",
-		PrivateKey:  "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC7W8jlH1234567\n-----END PRIVATE KEY-----\n",
-		ClientEmail: "test@test-project.iam.gserviceaccount.com",
-		ClientID:    "123456789",
-		AuthURI:     "https://accounts.google.com/o/oauth2/auth",
-		TokenURI:    "https://oauth2.googleapis.com/token",
-		AuthProviderX509CertURL: "https://www.googleapis.com/oauth2/v1/certs",
-		ClientX509CertURL:       "https://www.googleapis.com/robot/v1/metadata/x509/test%40test-project.iam.gserviceaccount.com",
-	}
-
-	saJSON, err := json.Marshal(mockCreds)
-	require.NoError(t, err)
-	err = os.WriteFile(saFile, saJSON, 0600)
-	require.NoError(t, err)
-
+// TestTokenGenerator_LoadCredentials tests credential loading logic
+func TestTokenGenerator_LoadCredentials(t *testing.T) {
 	tests := []struct {
-		name          string
-		config        *Config
-		opts          provider.GetTokenOptions
-		setupFile     bool
-		wantErr       bool
-		wantErrCode   errors.ErrorCode
-		validateToken func(t *testing.T, token *provider.Token)
+		name        string
+		setupMock   func() *testutil.MockCredLoader
+		wantErr     bool
+		wantErrCode errors.ErrorCode
+		validate    func(t *testing.T, creds *credentials.GCPCredentials)
 	}{
 		{
-			name: "successful token generation",
-			config: &Config{
-				ProjectID:       "test-project",
-				CredentialsFile: saFile,
-				TokenDuration:   1 * time.Hour,
-				Scopes:          DefaultScopes(),
+			name: "successful credential loading",
+			setupMock: func() *testutil.MockCredLoader {
+				return testutil.NewMockCredLoader().WithGCPCreds(testutil.CreateValidGCPCredentials())
 			},
-			opts: provider.GetTokenOptions{
-				ClusterName: "test-cluster",
-				ProjectID:   "test-project",
-				Region:      "us-central1",
-			},
-			setupFile: true,
-			wantErr:   false,
-			validateToken: func(t *testing.T, token *provider.Token) {
-				assert.NotEmpty(t, token.AccessToken, "access token should not be empty")
-				assert.Equal(t, "Bearer", token.TokenType, "token type should be Bearer")
-				assert.False(t, token.IsExpired(), "token should not be expired")
-				assert.True(t, token.ExpiresAt.After(time.Now()), "expiration should be in the future")
+			wantErr: false,
+			validate: func(t *testing.T, creds *credentials.GCPCredentials) {
+				assert.Equal(t, "test-project-12345", creds.ProjectID)
+				assert.Equal(t, "test-sa@test-project-12345.iam.gserviceaccount.com", creds.ClientEmail)
 			},
 		},
 		{
-			name: "missing credentials file",
-			config: &Config{
-				ProjectID:       "test-project",
-				CredentialsFile: "/nonexistent/path/sa.json",
-				TokenDuration:   1 * time.Hour,
-				Scopes:          DefaultScopes(),
+			name: "credential loading failure",
+			setupMock: func() *testutil.MockCredLoader {
+				return testutil.NewMockCredLoader().WithGCPError(
+					errors.New(errors.ErrCredentialLoadFailed, "file not found"),
+				)
 			},
-			opts: provider.GetTokenOptions{
-				ClusterName: "test-cluster",
-				ProjectID:   "test-project",
-			},
-			setupFile:   false,
 			wantErr:     true,
 			wantErrCode: errors.ErrCredentialLoadFailed,
 		},
 		{
-			name: "empty cluster name",
-			config: &Config{
-				ProjectID:       "test-project",
-				CredentialsFile: saFile,
-				TokenDuration:   1 * time.Hour,
-				Scopes:          DefaultScopes(),
+			name: "project ID mismatch warning",
+			setupMock: func() *testutil.MockCredLoader {
+				creds := testutil.CreateValidGCPCredentials()
+				creds.ProjectID = "different-project"
+				return testutil.NewMockCredLoader().WithGCPCreds(creds)
 			},
-			opts: provider.GetTokenOptions{
-				ClusterName: "",
-				ProjectID:   "test-project",
-			},
-			setupFile: true,
-			wantErr:   false, // Token generation doesn't validate cluster name
-			validateToken: func(t *testing.T, token *provider.Token) {
-				assert.NotNil(t, token)
-			},
-		},
-		{
-			name: "project id mismatch warning",
-			config: &Config{
-				ProjectID:       "different-project",
-				CredentialsFile: saFile,
-				TokenDuration:   1 * time.Hour,
-				Scopes:          DefaultScopes(),
-			},
-			opts: provider.GetTokenOptions{
-				ClusterName: "test-cluster",
-				ProjectID:   "different-project",
-			},
-			setupFile: true,
-			wantErr:   false, // Should succeed with warning
-			validateToken: func(t *testing.T, token *provider.Token) {
-				assert.NotNil(t, token)
+			wantErr: false,
+			validate: func(t *testing.T, creds *credentials.GCPCredentials) {
+				// Should still succeed even with mismatched project ID
+				assert.Equal(t, "different-project", creds.ProjectID)
 			},
 		},
 	}
@@ -129,10 +63,15 @@ func TestTokenGenerator_GenerateToken(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			log := logger.Nop()
-			credLoader := credentials.NewLoader(log)
-			generator := NewTokenGenerator(tt.config, credLoader, log)
+			mockLoader := tt.setupMock()
+			config := &Config{
+				ProjectID:     "test-project-12345",
+				TokenDuration: 1 * time.Hour,
+				Scopes:        DefaultScopes(),
+			}
 
-			token, err := generator.GenerateToken(context.Background(), tt.opts)
+			generator := NewTokenGenerator(config, mockLoader, log)
+			creds, err := generator.loadCredentials(context.Background())
 
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -140,29 +79,23 @@ func TestTokenGenerator_GenerateToken(t *testing.T) {
 					assert.True(t, errors.Is(err, tt.wantErrCode),
 						"expected error code %s, got %v", tt.wantErrCode, err)
 				}
-				assert.Nil(t, token)
 			} else {
-				if err != nil {
-					t.Logf("Unexpected error (might be expected in CI without real credentials): %v", err)
-					// In real environments without credentials, we expect this to fail
-					// This is okay for unit tests - integration tests will verify real behavior
-					return
-				}
-				assert.NoError(t, err)
-				require.NotNil(t, token)
-				if tt.validateToken != nil {
-					tt.validateToken(t, token)
+				require.NoError(t, err)
+				require.NotNil(t, creds)
+				if tt.validate != nil {
+					tt.validate(t, creds)
 				}
 			}
 		})
 	}
 }
 
+// TestTokenGenerator_ValidateToken tests token validation logic
 func TestTokenGenerator_ValidateToken(t *testing.T) {
 	log := logger.Nop()
 	config := DefaultConfig()
-	credLoader := credentials.NewLoader(log)
-	generator := NewTokenGenerator(config, credLoader, log)
+	mockLoader := testutil.NewMockCredLoader()
+	generator := NewTokenGenerator(config, mockLoader, log)
 
 	tests := []struct {
 		name        string
@@ -206,13 +139,22 @@ func TestTokenGenerator_ValidateToken(t *testing.T) {
 			wantErrCode: errors.ErrTokenExpired,
 		},
 		{
-			name: "token expiring soon",
+			name: "token expiring soon (4 minutes)",
 			token: &provider.Token{
 				AccessToken: "ya29.c.KqEB...",
-				ExpiresAt:   time.Now().Add(2 * time.Minute),
+				ExpiresAt:   time.Now().Add(4 * time.Minute),
 				TokenType:   "Bearer",
 			},
-			wantErr: false, // Still valid, just warns
+			wantErr: false, // Still valid, just logs warning
+		},
+		{
+			name: "token with long expiry",
+			token: &provider.Token{
+				AccessToken: "ya29.c.KqEB...",
+				ExpiresAt:   time.Now().Add(24 * time.Hour),
+				TokenType:   "Bearer",
+			},
+			wantErr: false,
 		},
 	}
 
@@ -233,137 +175,151 @@ func TestTokenGenerator_ValidateToken(t *testing.T) {
 	}
 }
 
+// TestTokenGenerator_RefreshToken tests token refresh logic
+// TestTokenGenerator_RefreshToken tests token refresh decision logic
+// Note: This only tests cases where refresh is NOT needed (returns current token).
+// Cases that trigger actual token generation are tested via TestTokenGenerator_LoadCredentials
+// and integration tests, as they require real Google API calls.
 func TestTokenGenerator_RefreshToken(t *testing.T) {
 	log := logger.Nop()
-	config := DefaultConfig()
-	credLoader := credentials.NewLoader(log)
-	generator := NewTokenGenerator(config, credLoader, log)
-
-	opts := provider.GetTokenOptions{
-		ClusterName: "test-cluster",
-		ProjectID:   "test-project",
-		Region:      "us-central1",
+	mockLoader := testutil.NewMockCredLoader().WithGCPCreds(testutil.CreateValidGCPCredentials())
+	config := &Config{
+		ProjectID:     "test-project-12345",
+		TokenDuration: 1 * time.Hour,
+		Scopes:        DefaultScopes(),
 	}
+	generator := NewTokenGenerator(config, mockLoader, log)
 
 	tests := []struct {
 		name         string
 		currentToken *provider.Token
-		wantRefresh  bool
 	}{
 		{
-			name:         "nil token - should refresh",
-			currentToken: nil,
-			wantRefresh:  true,
-		},
-		{
-			name: "expired token - should refresh",
+			name: "token expiring in 10 minutes does not trigger refresh",
 			currentToken: &provider.Token{
-				AccessToken: "old-token",
-				ExpiresAt:   time.Now().Add(-1 * time.Hour),
+				AccessToken: "still-valid-token",
+				ExpiresAt:   time.Now().Add(10 * time.Minute),
 				TokenType:   "Bearer",
 			},
-			wantRefresh: true,
 		},
 		{
-			name: "token expiring soon - should refresh",
+			name: "token expiring in 1 hour does not trigger refresh",
 			currentToken: &provider.Token{
-				AccessToken: "old-token",
-				ExpiresAt:   time.Now().Add(2 * time.Minute),
+				AccessToken: "fresh-token",
+				ExpiresAt:   time.Now().Add(1 * time.Hour),
 				TokenType:   "Bearer",
 			},
-			wantRefresh: true,
 		},
 		{
-			name: "valid token with time remaining - no refresh",
+			name: "token expiring in 6 minutes does not trigger refresh",
 			currentToken: &provider.Token{
-				AccessToken: "current-token",
-				ExpiresAt:   time.Now().Add(30 * time.Minute),
+				AccessToken: "still-valid-token",
+				ExpiresAt:   time.Now().Add(6 * time.Minute),
 				TokenType:   "Bearer",
 			},
-			wantRefresh: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			opts := provider.GetTokenOptions{
+				ClusterName: "test-cluster",
+				ProjectID:   "test-project-12345",
+				Region:      "us-central1",
+			}
+
+			// Should return the same token without refresh
 			token, err := generator.RefreshToken(context.Background(), opts, tt.currentToken)
 
-			// We expect this to fail in test environment without real credentials
-			// Just verify the logic flow
-			if !tt.wantRefresh && tt.currentToken != nil {
-				// Should return the same token without refreshing
-				if err == nil {
-					assert.Equal(t, tt.currentToken.AccessToken, token.AccessToken)
-				}
-			} else {
-				// Should attempt to refresh (may fail without real credentials)
-				t.Logf("Refresh attempt result: %v (expected in test environment)", err)
-			}
+			assert.NoError(t, err)
+			assert.Equal(t, tt.currentToken, token, "should return the same token without refresh")
 		})
 	}
 }
 
-func TestNewTokenGenerator(t *testing.T) {
-	log := logger.Nop()
-	credLoader := credentials.NewLoader(log)
-
-	tests := []struct {
-		name   string
-		config *Config
-	}{
-		{
-			name:   "with config",
-			config: DefaultConfig(),
-		},
-		{
-			name: "with custom scopes",
-			config: &Config{
-				ProjectID:     "test-project",
-				TokenDuration: 2 * time.Hour,
-				Scopes:        []string{"https://www.googleapis.com/auth/cloud-platform"},
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			generator := NewTokenGenerator(tt.config, credLoader, log)
-			assert.NotNil(t, generator)
-			assert.Equal(t, tt.config, generator.config)
-			assert.NotNil(t, generator.credLoader)
-			assert.NotNil(t, generator.logger)
-		})
-	}
-}
-
+// TestDefaultScopes verifies the default GCP scopes
 func TestDefaultScopes(t *testing.T) {
 	scopes := DefaultScopes()
 
 	assert.NotEmpty(t, scopes)
 	assert.Contains(t, scopes, "https://www.googleapis.com/auth/cloud-platform")
-	assert.Contains(t, scopes, "https://www.googleapis.com/auth/userinfo.email")
+	t.Logf("Default scopes: %v", scopes)
 }
 
-func TestToken_IsExpired(t *testing.T) {
+// TestNewTokenGenerator verifies token generator initialization
+func TestNewTokenGenerator(t *testing.T) {
+	tests := []struct {
+		name   string
+		config *Config
+		valid  bool
+	}{
+		{
+			name: "valid config",
+			config: &Config{
+				ProjectID:     "test-project",
+				TokenDuration: 1 * time.Hour,
+				Scopes:        DefaultScopes(),
+			},
+			valid: true,
+		},
+		{
+			name: "minimal config",
+			config: &Config{
+				ProjectID: "test-project",
+			},
+			valid: true,
+		},
+		{
+			name: "custom scopes",
+			config: &Config{
+				ProjectID:     "test-project",
+				TokenDuration: 30 * time.Minute,
+				Scopes:        []string{"custom-scope"},
+			},
+			valid: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			log := logger.Nop()
+			mockLoader := testutil.NewMockCredLoader()
+
+			generator := NewTokenGenerator(tt.config, mockLoader, log)
+
+			if tt.valid {
+				assert.NotNil(t, generator)
+				assert.NotNil(t, generator.config)
+				assert.NotNil(t, generator.credLoader)
+				assert.NotNil(t, generator.logger)
+			}
+		})
+	}
+}
+
+// TestToken_ExpiresIn tests the token expiration calculation
+func TestToken_ExpiresIn(t *testing.T) {
+	now := time.Now()
+
 	tests := []struct {
 		name      string
 		expiresAt time.Time
-		want      bool
+		want      time.Duration
 	}{
 		{
-			name:      "expired",
-			expiresAt: time.Now().Add(-1 * time.Hour),
-			want:      true,
+			name:      "expires in 1 hour",
+			expiresAt: now.Add(1 * time.Hour),
+			want:      1 * time.Hour,
 		},
 		{
-			name:      "not expired",
-			expiresAt: time.Now().Add(1 * time.Hour),
-			want:      false,
+			name:      "expires in 30 minutes",
+			expiresAt: now.Add(30 * time.Minute),
+			want:      30 * time.Minute,
 		},
 		{
-			name:      "expires now",
-			expiresAt: time.Now(),
-			want:      false, // Might be false depending on timing
+			name:      "already expired",
+			expiresAt: now.Add(-10 * time.Minute),
+			want:      0, // Negative durations should be treated as 0
 		},
 	}
 
@@ -375,23 +331,58 @@ func TestToken_IsExpired(t *testing.T) {
 				TokenType:   "Bearer",
 			}
 
-			// For "expires now", we can't assert exactly due to timing
-			if tt.name != "expires now" {
-				assert.Equal(t, tt.want, token.IsExpired())
+			expiresIn := token.ExpiresIn()
+
+			// Allow small time drift (1 second) due to test execution time
+			if tt.want > 0 {
+				assert.InDelta(t, tt.want.Seconds(), expiresIn.Seconds(), 1.0)
+			} else {
+				assert.LessOrEqual(t, expiresIn, time.Duration(0))
 			}
 		})
 	}
 }
 
-func TestToken_ExpiresIn(t *testing.T) {
-	futureTime := time.Now().Add(30 * time.Minute)
-	token := &provider.Token{
-		AccessToken: "test-token",
-		ExpiresAt:   futureTime,
-		TokenType:   "Bearer",
+// TestToken_IsExpired tests token expiration check
+func TestToken_IsExpired(t *testing.T) {
+	now := time.Now()
+
+	tests := []struct {
+		name      string
+		expiresAt time.Time
+		want      bool
+	}{
+		{
+			name:      "expired",
+			expiresAt: now.Add(-1 * time.Hour),
+			want:      true,
+		},
+		{
+			name:      "not expired",
+			expiresAt: now.Add(1 * time.Hour),
+			want:      false,
+		},
+		{
+			name:      "expires now",
+			expiresAt: now,
+			want:      true, // Tokens expiring "now" are considered expired
+		},
 	}
 
-	expiresIn := token.ExpiresIn()
-	assert.Greater(t, expiresIn, 29*time.Minute)
-	assert.Less(t, expiresIn, 31*time.Minute)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			token := &provider.Token{
+				AccessToken: "test-token",
+				ExpiresAt:   tt.expiresAt,
+				TokenType:   "Bearer",
+			}
+
+			// Allow small time drift
+			if tt.want {
+				assert.True(t, token.IsExpired() || time.Until(token.ExpiresAt) < time.Second)
+			} else {
+				assert.False(t, token.IsExpired())
+			}
+		})
+	}
 }

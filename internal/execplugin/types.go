@@ -45,7 +45,6 @@ func NewExecCredential(token string, expiresAt time.Time) *ExecCredential {
 	}
 }
 
-// Validate validates the ExecCredential response
 func (e *ExecCredential) Validate() error {
 	if e.TypeMeta.APIVersion == "" {
 		e.TypeMeta.APIVersion = "client.authentication.k8s.io/v1"

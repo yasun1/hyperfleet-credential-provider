@@ -46,7 +46,6 @@ func (p *Provider) GetClusterInfo(ctx context.Context, clusterName, resourceGrou
 		return nil, fmt.Errorf("failed to load Azure credentials: %w", err)
 	}
 
-	// Create Azure credential
 	credential, err := azidentity.NewClientSecretCredential(
 		creds.TenantID,
 		creds.ClientID,
@@ -61,7 +60,6 @@ func (p *Provider) GetClusterInfo(ctx context.Context, clusterName, resourceGrou
 		return nil, fmt.Errorf("failed to create Azure credential: %w", err)
 	}
 
-	// Create AKS client
 	clientFactory, err := armcontainerservice.NewClientFactory(p.config.SubscriptionID, credential, nil)
 	if err != nil {
 		p.logger.Error("Failed to create AKS client factory",
@@ -78,7 +76,6 @@ func (p *Provider) GetClusterInfo(ctx context.Context, clusterName, resourceGrou
 		logger.String("resource_group", resourceGroup),
 	)
 
-	// Get managed cluster
 	cluster, err := managedClustersClient.Get(ctx, resourceGroup, clusterName, nil)
 	if err != nil {
 		p.logger.Error("Failed to get cluster",
@@ -89,7 +86,6 @@ func (p *Provider) GetClusterInfo(ctx context.Context, clusterName, resourceGrou
 		return nil, fmt.Errorf("failed to get cluster: %w", err)
 	}
 
-	// Validate cluster data
 	if cluster.Properties == nil {
 		return nil, fmt.Errorf("cluster properties are nil")
 	}
@@ -97,7 +93,6 @@ func (p *Provider) GetClusterInfo(ctx context.Context, clusterName, resourceGrou
 		return nil, fmt.Errorf("cluster FQDN is empty")
 	}
 
-	// Get admin credentials to extract CA certificate
 	credResult, err := managedClustersClient.ListClusterAdminCredentials(ctx, resourceGroup, clusterName, nil)
 	if err != nil {
 		p.logger.Error("Failed to get cluster admin credentials",

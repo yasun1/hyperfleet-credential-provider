@@ -40,7 +40,6 @@ func (g *TokenGenerator) GenerateToken(ctx context.Context, opts provider.GetTok
 		logger.String("region", opts.Region),
 	)
 
-	// Step 1: Load GCP credentials
 	creds, err := g.loadCredentials(ctx)
 	if err != nil {
 		return nil, err
@@ -51,13 +50,11 @@ func (g *TokenGenerator) GenerateToken(ctx context.Context, opts provider.GetTok
 		logger.String("project_id", creds.ProjectID),
 	)
 
-	// Step 2: Create OAuth2 token source
 	tokenSource, err := g.createTokenSource(ctx, creds)
 	if err != nil {
 		return nil, err
 	}
 
-	// Step 3: Get OAuth2 token
 	oauth2Token, err := tokenSource.Token()
 	if err != nil {
 		return nil, errors.Wrap(
@@ -71,7 +68,6 @@ func (g *TokenGenerator) GenerateToken(ctx context.Context, opts provider.GetTok
 		})
 	}
 
-	// Validate token
 	if oauth2Token.AccessToken == "" {
 		return nil, errors.New(
 			errors.ErrTokenInvalid,
@@ -79,14 +75,12 @@ func (g *TokenGenerator) GenerateToken(ctx context.Context, opts provider.GetTok
 		).WithField("provider", "gcp")
 	}
 
-	// Step 4: Create provider token
 	token := &provider.Token{
 		AccessToken: oauth2Token.AccessToken,
 		ExpiresAt:   oauth2Token.Expiry,
 		TokenType:   oauth2Token.TokenType,
 	}
 
-	// Default to Bearer if not specified
 	if token.TokenType == "" {
 		token.TokenType = "Bearer"
 	}
@@ -114,7 +108,6 @@ func (g *TokenGenerator) loadCredentials(ctx context.Context) (*credentials.GCPC
 		).WithField("provider", "gcp")
 	}
 
-	// Validate project ID matches if specified in config
 	if g.config.ProjectID != "" && creds.ProjectID != g.config.ProjectID {
 		g.logger.Warn("Project ID mismatch between config and credentials",
 			logger.String("config_project", g.config.ProjectID),
@@ -137,7 +130,6 @@ func (g *TokenGenerator) createTokenSource(ctx context.Context, creds *credentia
 		).WithField("provider", "gcp")
 	}
 
-	// Create credentials from JSON with appropriate scopes
 	googleCreds, err := google.CredentialsFromJSON(ctx, credsJSON, g.config.Scopes...)
 	if err != nil {
 		return nil, errors.Wrap(
@@ -197,7 +189,6 @@ func (g *TokenGenerator) ValidateToken(token *provider.Token) error {
 
 // RefreshToken refreshes an expired or soon-to-expire token
 func (g *TokenGenerator) RefreshToken(ctx context.Context, opts provider.GetTokenOptions, currentToken *provider.Token) (*provider.Token, error) {
-	// Check if refresh is needed
 	if currentToken != nil && !currentToken.IsExpired() {
 		// Token is still valid, check if it's close to expiring
 		if currentToken.ExpiresIn() > 5*time.Minute {

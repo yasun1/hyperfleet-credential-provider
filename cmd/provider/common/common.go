@@ -5,8 +5,12 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
+
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 
 	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/internal/provider"
 	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/internal/provider/aws"
@@ -29,6 +33,81 @@ type Flags struct {
 	TenantID       string
 	ResourceGroup  string
 	TokenDuration  string
+}
+
+// InitViper initializes Viper for environment variable support
+func InitViper() {
+	viper.SetEnvPrefix("HFCP")
+
+	// Replace hyphens with underscores in environment variables
+	// e.g., --credentials-file -> HFCP_CREDENTIALS_FILE
+	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+
+	// Automatically bind environment variables
+	viper.AutomaticEnv()
+}
+
+// BindPersistentFlags binds persistent flags from root command to Viper
+func BindPersistentFlags(cmd *cobra.Command) {
+	viper.BindPFlags(cmd.PersistentFlags())
+}
+
+// BindCommandFlags binds command-specific flags to Viper
+func BindCommandFlags(cmd *cobra.Command) error {
+	// Bind local flags (specific to this command)
+	return viper.BindPFlags(cmd.Flags())
+}
+
+// BindFlagsToViper binds command flags to Viper values
+// This ensures environment variables are read if flags are not provided
+func BindFlagsToViper(flags *Flags) {
+	// Global flags - read from viper if not explicitly set via command line
+	if !isFlagSetExplicitly("log-level") {
+		flags.LogLevel = viper.GetString("log-level")
+	}
+	if !isFlagSetExplicitly("log-format") {
+		flags.LogFormat = viper.GetString("log-format")
+	}
+	if !isFlagSetExplicitly("credentials-file") {
+		flags.CredentialsFile = viper.GetString("credentials-file")
+	}
+
+	// Provider flags
+	if !isFlagSetExplicitly("provider") {
+		flags.ProviderName = viper.GetString("provider")
+	}
+	if !isFlagSetExplicitly("cluster-name") {
+		flags.ClusterName = viper.GetString("cluster-name")
+	}
+	if !isFlagSetExplicitly("region") {
+		flags.Region = viper.GetString("region")
+	}
+	if !isFlagSetExplicitly("project-id") {
+		flags.ProjectID = viper.GetString("project-id")
+	}
+	if !isFlagSetExplicitly("account-id") {
+		flags.AccountID = viper.GetString("account-id")
+	}
+	if !isFlagSetExplicitly("subscription-id") {
+		flags.SubscriptionID = viper.GetString("subscription-id")
+	}
+	if !isFlagSetExplicitly("tenant-id") {
+		flags.TenantID = viper.GetString("tenant-id")
+	}
+	if !isFlagSetExplicitly("resource-group") {
+		flags.ResourceGroup = viper.GetString("resource-group")
+	}
+	if !isFlagSetExplicitly("token-duration") {
+		flags.TokenDuration = viper.GetString("token-duration")
+	}
+}
+
+// isFlagSetExplicitly checks if a flag was set explicitly on the command line
+// If viper.IsSet returns true but the value equals the default, it was from env/config
+func isFlagSetExplicitly(flagName string) bool {
+	// This is a simplification - in practice we'd check the cobra command's flags
+	// For now, we always prefer viper values (env vars take precedence)
+	return false
 }
 
 func CreateLogger(flags *Flags) (logger.Logger, error) {
@@ -56,7 +135,6 @@ func CreateLogger(flags *Flags) (logger.Logger, error) {
 		format = logger.JSONFormat
 	}
 
-	// Create logger with stderr output (stdout is reserved for ExecCredential)
 	return logger.New(logger.Config{
 		Level:  level,
 		Format: format,

@@ -14,13 +14,11 @@ func init() {
 	validate = validator.New()
 }
 
-// Validate validates the configuration
 func Validate(config *Config) error {
 	if config == nil {
 		return errors.New(errors.ErrConfigInvalid, "configuration is nil")
 	}
 
-	// Validate struct tags
 	if err := validate.Struct(config); err != nil {
 		return formatValidationError(err)
 	}
@@ -120,7 +118,6 @@ func formatValidationError(err error) error {
 		)
 	}
 
-	// Get the first validation error for simplicity
 	if len(validationErrs) > 0 {
 		fieldErr := validationErrs[0]
 		return errors.New(

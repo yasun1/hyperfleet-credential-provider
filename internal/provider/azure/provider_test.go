@@ -92,39 +92,14 @@ func TestProvider_Name(t *testing.T) {
 func TestProvider_GetToken(t *testing.T) {
 	log := logger.Nop()
 
+	// Note: Only testing error cases here. Success cases that require real Azure API
+	// calls are tested in integration tests.
 	tests := []struct {
 		name        string
 		config      *Config
 		opts        provider.GetTokenOptions
-		setupEnv    func()
-		cleanupEnv  func()
-		wantErr     bool
 		wantErrCode errors.ErrorCode
 	}{
-		{
-			name: "valid token request",
-			config: &Config{
-				TenantID:       "87654321-4321-4321-4321-210987654321",
-				SubscriptionID: "12345678-1234-1234-1234-123456789012",
-				TokenDuration:  1 * time.Hour,
-			},
-			opts: provider.GetTokenOptions{
-				ClusterName:    "test-aks-cluster",
-				SubscriptionID: "12345678-1234-1234-1234-123456789012",
-				TenantID:       "87654321-4321-4321-4321-210987654321",
-			},
-			setupEnv: func() {
-				os.Setenv("AZURE_CLIENT_ID", "11111111-1111-1111-1111-111111111111")
-				os.Setenv("AZURE_CLIENT_SECRET", "test-client-secret")
-				os.Setenv("AZURE_TENANT_ID", "87654321-4321-4321-4321-210987654321")
-			},
-			cleanupEnv: func() {
-				os.Unsetenv("AZURE_CLIENT_ID")
-				os.Unsetenv("AZURE_CLIENT_SECRET")
-				os.Unsetenv("AZURE_TENANT_ID")
-			},
-			wantErr: false, // May error in test env without real credentials
-		},
 		{
 			name: "missing cluster name",
 			config: &Config{
@@ -137,33 +112,7 @@ func TestProvider_GetToken(t *testing.T) {
 				SubscriptionID: "12345678-1234-1234-1234-123456789012",
 				TenantID:       "87654321-4321-4321-4321-210987654321",
 			},
-			setupEnv:    func() {},
-			cleanupEnv:  func() {},
-			wantErr:     true,
 			wantErrCode: errors.ErrInvalidArgument,
-		},
-		{
-			name: "tenant and subscription from config",
-			config: &Config{
-				TenantID:       "87654321-4321-4321-4321-210987654321",
-				SubscriptionID: "12345678-1234-1234-1234-123456789012",
-				TokenDuration:  1 * time.Hour,
-			},
-			opts: provider.GetTokenOptions{
-				ClusterName: "test-cluster",
-				// TenantID and SubscriptionID should come from config
-			},
-			setupEnv: func() {
-				os.Setenv("AZURE_CLIENT_ID", "11111111-1111-1111-1111-111111111111")
-				os.Setenv("AZURE_CLIENT_SECRET", "test-client-secret")
-				os.Setenv("AZURE_TENANT_ID", "87654321-4321-4321-4321-210987654321")
-			},
-			cleanupEnv: func() {
-				os.Unsetenv("AZURE_CLIENT_ID")
-				os.Unsetenv("AZURE_CLIENT_SECRET")
-				os.Unsetenv("AZURE_TENANT_ID")
-			},
-			wantErr: false, // May error in test env
 		},
 		{
 			name: "missing credentials",
@@ -177,46 +126,21 @@ func TestProvider_GetToken(t *testing.T) {
 				SubscriptionID: "12345678-1234-1234-1234-123456789012",
 				TenantID:       "87654321-4321-4321-4321-210987654321",
 			},
-			setupEnv:   func() {},
-			cleanupEnv: func() {},
-			wantErr:    true,
+			wantErrCode: errors.ErrCredentialLoadFailed,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.setupEnv != nil {
-				tt.setupEnv()
-			}
-			if tt.cleanupEnv != nil {
-				defer tt.cleanupEnv()
-			}
-
 			azureProvider, err := NewProvider(tt.config, log)
 			require.NoError(t, err)
 
 			token, err := azureProvider.GetToken(context.Background(), tt.opts)
 
-			if tt.wantErr {
-				assert.Error(t, err)
-				if tt.wantErrCode != "" {
-					assert.True(t, errors.Is(err, tt.wantErrCode),
-						"expected error code %s, got %v", tt.wantErrCode, err)
-				}
-				assert.Nil(t, token)
-			} else {
-				// In test environment without real Azure credentials, we expect failure
-				// This is okay - integration tests will verify with real credentials
-				if err != nil {
-					t.Logf("Expected error in test environment: %v", err)
-					return
-				}
-				assert.NoError(t, err)
-				require.NotNil(t, token)
-				assert.NotEmpty(t, token.AccessToken)
-				assert.Equal(t, "Bearer", token.TokenType)
-				assert.False(t, token.IsExpired())
-			}
+			assert.Error(t, err)
+			assert.True(t, errors.Is(err, tt.wantErrCode),
+				"expected error code %s, got %v", tt.wantErrCode, err)
+			assert.Nil(t, token)
 		})
 	}
 }
@@ -224,33 +148,13 @@ func TestProvider_GetToken(t *testing.T) {
 func TestProvider_ValidateCredentials(t *testing.T) {
 	log := logger.Nop()
 
+	// Note: Only testing error cases here. Success cases that require real Azure API
+	// calls are tested in integration tests.
 	tests := []struct {
 		name        string
 		config      *Config
-		setupEnv    func()
-		cleanupEnv  func()
-		wantErr     bool
 		wantErrCode errors.ErrorCode
 	}{
-		{
-			name: "valid credentials",
-			config: &Config{
-				TenantID:       "87654321-4321-4321-4321-210987654321",
-				SubscriptionID: "12345678-1234-1234-1234-123456789012",
-				TokenDuration:  1 * time.Hour,
-			},
-			setupEnv: func() {
-				os.Setenv("AZURE_CLIENT_ID", "11111111-1111-1111-1111-111111111111")
-				os.Setenv("AZURE_CLIENT_SECRET", "test-client-secret")
-				os.Setenv("AZURE_TENANT_ID", "87654321-4321-4321-4321-210987654321")
-			},
-			cleanupEnv: func() {
-				os.Unsetenv("AZURE_CLIENT_ID")
-				os.Unsetenv("AZURE_CLIENT_SECRET")
-				os.Unsetenv("AZURE_TENANT_ID")
-			},
-			wantErr: false, // May error without real credentials
-		},
 		{
 			name: "missing credentials",
 			config: &Config{
@@ -258,61 +162,20 @@ func TestProvider_ValidateCredentials(t *testing.T) {
 				SubscriptionID: "12345678-1234-1234-1234-123456789012",
 				TokenDuration:  1 * time.Hour,
 			},
-			setupEnv:    func() {},
-			cleanupEnv:  func() {},
-			wantErr:     true,
 			wantErrCode: errors.ErrCredentialValidationFailed,
-		},
-		{
-			name: "credentials from environment",
-			config: &Config{
-				TokenDuration: 1 * time.Hour,
-			},
-			setupEnv: func() {
-				os.Setenv("AZURE_CLIENT_ID", "11111111-1111-1111-1111-111111111111")
-				os.Setenv("AZURE_CLIENT_SECRET", "test-client-secret")
-				os.Setenv("AZURE_TENANT_ID", "87654321-4321-4321-4321-210987654321")
-				os.Setenv("AZURE_SUBSCRIPTION_ID", "12345678-1234-1234-1234-123456789012")
-			},
-			cleanupEnv: func() {
-				os.Unsetenv("AZURE_CLIENT_ID")
-				os.Unsetenv("AZURE_CLIENT_SECRET")
-				os.Unsetenv("AZURE_TENANT_ID")
-				os.Unsetenv("AZURE_SUBSCRIPTION_ID")
-			},
-			wantErr: false, // May error without real credentials
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.setupEnv != nil {
-				tt.setupEnv()
-			}
-			if tt.cleanupEnv != nil {
-				defer tt.cleanupEnv()
-			}
-
 			azureProvider, err := NewProvider(tt.config, log)
 			require.NoError(t, err)
 
 			err = azureProvider.ValidateCredentials(context.Background())
 
-			if tt.wantErr {
-				assert.Error(t, err)
-				if tt.wantErrCode != "" {
-					assert.True(t, errors.Is(err, tt.wantErrCode),
-						"expected error code %s, got %v", tt.wantErrCode, err)
-				}
-			} else {
-				// In test environment without real Azure credentials, we expect failure
-				// This is okay - integration tests will verify with real credentials
-				if err != nil {
-					t.Logf("Expected error in test environment: %v", err)
-					return
-				}
-				assert.NoError(t, err)
-			}
+			assert.Error(t, err)
+			assert.True(t, errors.Is(err, tt.wantErrCode),
+				"expected error code %s, got %v", tt.wantErrCode, err)
 		})
 	}
 }

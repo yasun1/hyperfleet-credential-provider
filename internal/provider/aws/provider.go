@@ -27,10 +27,8 @@ func NewProvider(config *Config, log logger.Logger) (*Provider, error) {
 	// Note: For AWS, region is optional and can be provided at token generation time
 	// Unlike GCP which requires project_id, AWS can work with just credentials
 
-	// Create credential loader
 	credLoader := credentials.NewLoader(log)
 
-	// Create token generator
 	tokenGenerator := NewTokenGenerator(config, credLoader, log)
 
 	// Setup AWS credential options
@@ -55,7 +53,6 @@ func NewProvider(config *Config, log logger.Logger) (*Provider, error) {
 
 // GetToken generates an EKS authentication token
 func (p *Provider) GetToken(ctx context.Context, opts provider.GetTokenOptions) (*provider.Token, error) {
-	// Validate options
 	if opts.ClusterName == "" {
 		return nil, errors.New(
 			errors.ErrInvalidArgument,
@@ -63,7 +60,6 @@ func (p *Provider) GetToken(ctx context.Context, opts provider.GetTokenOptions) 
 		).WithField("provider", "aws")
 	}
 
-	// Use region from options if provided, otherwise use config
 	if opts.Region == "" && p.config.Region != "" {
 		opts.Region = p.config.Region
 	}
@@ -90,7 +86,6 @@ func (p *Provider) GetToken(ctx context.Context, opts provider.GetTokenOptions) 
 		return nil, err
 	}
 
-	// Validate the generated token
 	if err := p.tokenGenerator.ValidateToken(token); err != nil {
 		return nil, err
 	}
@@ -134,7 +129,6 @@ func (p *Provider) ValidateCredentials(ctx context.Context) error {
 		).WithField("provider", "aws")
 	}
 
-	// Validate the test token
 	if err := p.tokenGenerator.ValidateToken(token); err != nil {
 		return errors.Wrap(
 			errors.ErrCredentialValidationFailed,

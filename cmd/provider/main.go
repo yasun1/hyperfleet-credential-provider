@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -13,10 +14,8 @@ import (
 )
 
 func main() {
-	// Create shared flags struct
 	flags := &common.Flags{}
 
-	// Create root command
 	rootCmd := &cobra.Command{
 		Use:   "hyperfleet-credential-provider",
 		Short: "Multi-cloud Kubernetes authentication token provider",
@@ -28,12 +27,16 @@ Supports Kubernetes exec plugin authentication for seamless cluster access.`,
 		SilenceErrors: true,
 	}
 
-	// Add global flags
 	rootCmd.PersistentFlags().StringVar(&flags.LogLevel, "log-level", "info", "Log level (debug, info, warn, error)")
 	rootCmd.PersistentFlags().StringVar(&flags.LogFormat, "log-format", "json", "Log format (json, console)")
 	rootCmd.PersistentFlags().StringVar(&flags.CredentialsFile, "credentials-file", "", "Path to credentials file (overrides environment variables)")
 
-	// Add subcommands
+	// Initialize Viper for environment variable support
+	cobra.OnInitialize(common.InitViper)
+
+	// Bind persistent flags to viper (global flags available to all subcommands)
+	common.BindPersistentFlags(rootCmd)
+
 	rootCmd.AddCommand(version.NewCommand())
 	rootCmd.AddCommand(token.NewCommand(flags))
 	rootCmd.AddCommand(cluster.NewCommand(flags))
@@ -41,6 +44,8 @@ Supports Kubernetes exec plugin authentication for seamless cluster access.`,
 
 	// Execute
 	if err := rootCmd.Execute(); err != nil {
+		// Print error to stderr since we have SilenceErrors: true
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
 }

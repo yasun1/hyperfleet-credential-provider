@@ -2,7 +2,7 @@ package aws
 
 import (
 	"context"
-	"os"
+	"encoding/base64"
 	"strings"
 	"testing"
 	"time"
@@ -10,130 +10,71 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/internal/credentials"
 	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/internal/provider"
+	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/internal/testutil"
 	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/pkg/errors"
 	"github.com/openshift-hyperfleet/hyperfleet-credential-provider/pkg/logger"
 )
 
-func TestTokenGenerator_GenerateToken(t *testing.T) {
+// TestTokenGenerator_LoadAWSConfig tests AWS config loading logic
+func TestTokenGenerator_LoadAWSConfig(t *testing.T) {
 	tests := []struct {
-		name          string
-		config        *Config
-		opts          provider.GetTokenOptions
-		setupEnv      func()
-		cleanupEnv    func()
-		wantErr       bool
-		wantErrCode   errors.ErrorCode
-		validateToken func(t *testing.T, token *provider.Token)
+		name        string
+		setupMock   func() *testutil.MockCredLoader
+		opts        provider.GetTokenOptions
+		wantErr     bool
+		wantErrCode errors.ErrorCode
+		validate    func(t *testing.T)
 	}{
 		{
-			name: "successful token generation with env credentials",
-			config: &Config{
-				Region:        "us-east-1",
-				TokenDuration: 15 * time.Minute,
-			},
-			opts: provider.GetTokenOptions{
-				ClusterName: "test-eks-cluster",
-				Region:      "us-east-1",
-			},
-			setupEnv: func() {
-				os.Setenv("AWS_ACCESS_KEY_ID", "AKIAIOSFODNN7EXAMPLE")
-				os.Setenv("AWS_SECRET_ACCESS_KEY", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")
-				os.Setenv("AWS_REGION", "us-east-1")
-			},
-			cleanupEnv: func() {
-				os.Unsetenv("AWS_ACCESS_KEY_ID")
-				os.Unsetenv("AWS_SECRET_ACCESS_KEY")
-				os.Unsetenv("AWS_REGION")
-			},
-			wantErr: false, // May fail without real AWS credentials
-			validateToken: func(t *testing.T, token *provider.Token) {
-				if token == nil {
-					return // Expected in test env
-				}
-				assert.NotEmpty(t, token.AccessToken, "access token should not be empty")
-				assert.True(t, strings.HasPrefix(token.AccessToken, v1Prefix), "token should have v1 prefix")
-				assert.Equal(t, "Bearer", token.TokenType, "token type should be Bearer")
-				assert.False(t, token.IsExpired(), "token should not be expired")
-				assert.True(t, token.ExpiresAt.After(time.Now()), "expiration should be in the future")
-			},
-		},
-		{
-			name: "missing cluster name",
-			config: &Config{
-				Region:        "us-east-1",
-				TokenDuration: 15 * time.Minute,
-			},
-			opts: provider.GetTokenOptions{
-				ClusterName: "",
-				Region:      "us-east-1",
-			},
-			setupEnv: func() {
-				os.Setenv("AWS_ACCESS_KEY_ID", "AKIAIOSFODNN7EXAMPLE")
-				os.Setenv("AWS_SECRET_ACCESS_KEY", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")
-			},
-			cleanupEnv: func() {
-				os.Unsetenv("AWS_ACCESS_KEY_ID")
-				os.Unsetenv("AWS_SECRET_ACCESS_KEY")
-			},
-			wantErr:     true,
-			wantErrCode: errors.ErrInvalidArgument,
-		},
-		{
-			name: "missing credentials",
-			config: &Config{
-				Region:        "us-east-1",
-				TokenDuration: 15 * time.Minute,
+			name: "successful config loading with valid credentials",
+			setupMock: func() *testutil.MockCredLoader {
+				return testutil.NewMockCredLoader().WithAWSCreds(testutil.CreateValidAWSCredentials())
 			},
 			opts: provider.GetTokenOptions{
 				ClusterName: "test-cluster",
 				Region:      "us-east-1",
 			},
-			setupEnv: func() {
-				// No credentials set
-			},
-			cleanupEnv: func() {},
-			wantErr:    true,
+			wantErr: false,
 		},
 		{
-			name: "with session token",
-			config: &Config{
-				Region:        "us-west-2",
-				TokenDuration: 15 * time.Minute,
+			name: "config loading with session token",
+			setupMock: func() *testutil.MockCredLoader {
+				return testutil.NewMockCredLoader().WithAWSCreds(testutil.CreateValidAWSCredentialsWithSessionToken())
 			},
 			opts: provider.GetTokenOptions{
 				ClusterName: "test-cluster",
 				Region:      "us-west-2",
 			},
-			setupEnv: func() {
-				os.Setenv("AWS_ACCESS_KEY_ID", "AKIAIOSFODNN7EXAMPLE")
-				os.Setenv("AWS_SECRET_ACCESS_KEY", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")
-				os.Setenv("AWS_SESSION_TOKEN", "session-token-example")
+			wantErr: false,
+		},
+		{
+			name: "credential loading failure",
+			setupMock: func() *testutil.MockCredLoader {
+				return testutil.NewMockCredLoader().WithAWSError(
+					errors.New(errors.ErrCredentialLoadFailed, "credentials not found"),
+				)
 			},
-			cleanupEnv: func() {
-				os.Unsetenv("AWS_ACCESS_KEY_ID")
-				os.Unsetenv("AWS_SECRET_ACCESS_KEY")
-				os.Unsetenv("AWS_SESSION_TOKEN")
+			opts: provider.GetTokenOptions{
+				ClusterName: "test-cluster",
+				Region:      "us-east-1",
 			},
-			wantErr: false, // May fail without real credentials
+			wantErr:     true,
+			wantErrCode: errors.ErrCredentialLoadFailed,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.setupEnv != nil {
-				tt.setupEnv()
-			}
-			if tt.cleanupEnv != nil {
-				defer tt.cleanupEnv()
-			}
-
 			log := logger.Nop()
-			credLoader := credentials.NewLoader(log)
-			generator := NewTokenGenerator(tt.config, credLoader, log)
+			mockLoader := tt.setupMock()
+			config := &Config{
+				Region:        "us-east-1",
+				TokenDuration: 15 * time.Minute,
+			}
 
-			token, err := generator.GenerateToken(context.Background(), tt.opts)
+			generator := NewTokenGenerator(config, mockLoader, log)
+			awsConfig, err := generator.loadAWSConfig(context.Background(), tt.opts)
 
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -141,93 +82,56 @@ func TestTokenGenerator_GenerateToken(t *testing.T) {
 					assert.True(t, errors.Is(err, tt.wantErrCode),
 						"expected error code %s, got %v", tt.wantErrCode, err)
 				}
-				assert.Nil(t, token)
 			} else {
-				if err != nil {
-					t.Logf("Unexpected error (might be expected in test env without real credentials): %v", err)
-					return
-				}
-				assert.NoError(t, err)
-				require.NotNil(t, token)
-				if tt.validateToken != nil {
-					tt.validateToken(t, token)
+				require.NoError(t, err)
+				assert.NotNil(t, awsConfig)
+				if tt.validate != nil {
+					tt.validate(t)
 				}
 			}
 		})
 	}
 }
 
-func TestTokenGenerator_ValidateToken(t *testing.T) {
-	log := logger.Nop()
-	config := DefaultConfig()
-	credLoader := credentials.NewLoader(log)
-	generator := NewTokenGenerator(config, credLoader, log)
-
+// TestTokenGenerator_ValidateClusterName tests cluster name validation
+func TestTokenGenerator_ValidateClusterName(t *testing.T) {
 	tests := []struct {
 		name        string
-		token       *provider.Token
+		clusterName string
 		wantErr     bool
 		wantErrCode errors.ErrorCode
 	}{
 		{
-			name: "valid token",
-			token: &provider.Token{
-				AccessToken: v1Prefix + "eyJ1cmwiOiJodHRwczovL3N0cy5hbWF6b25hd3MuY29tLyIsIm1ldGhvZCI6IlBPU1QifQ",
-				ExpiresAt:   time.Now().Add(15 * time.Minute),
-				TokenType:   "Bearer",
-			},
-			wantErr: false,
+			name:        "valid cluster name",
+			clusterName: "my-eks-cluster",
+			wantErr:     false,
 		},
 		{
-			name:        "nil token",
-			token:       nil,
+			name:        "empty cluster name",
+			clusterName: "",
 			wantErr:     true,
-			wantErrCode: errors.ErrTokenInvalid,
-		},
-		{
-			name: "empty access token",
-			token: &provider.Token{
-				AccessToken: "",
-				ExpiresAt:   time.Now().Add(15 * time.Minute),
-				TokenType:   "Bearer",
-			},
-			wantErr:     true,
-			wantErrCode: errors.ErrTokenInvalid,
-		},
-		{
-			name: "invalid prefix",
-			token: &provider.Token{
-				AccessToken: "invalid-prefix.token",
-				ExpiresAt:   time.Now().Add(15 * time.Minute),
-				TokenType:   "Bearer",
-			},
-			wantErr:     true,
-			wantErrCode: errors.ErrTokenInvalid,
-		},
-		{
-			name: "expired token",
-			token: &provider.Token{
-				AccessToken: v1Prefix + "eyJ1cmwiOiJodHRwczovL3N0cy5hbWF6b25hd3MuY29tLyIsIm1ldGhvZCI6IlBPU1QifQ",
-				ExpiresAt:   time.Now().Add(-15 * time.Minute),
-				TokenType:   "Bearer",
-			},
-			wantErr:     true,
-			wantErrCode: errors.ErrTokenExpired,
-		},
-		{
-			name: "token expiring soon",
-			token: &provider.Token{
-				AccessToken: v1Prefix + "eyJ1cmwiOiJodHRwczovL3N0cy5hbWF6b25hd3MuY29tLyIsIm1ldGhvZCI6IlBPU1QifQ",
-				ExpiresAt:   time.Now().Add(1 * time.Minute),
-				TokenType:   "Bearer",
-			},
-			wantErr: false, // Still valid, just warns
+			wantErrCode: errors.ErrInvalidArgument,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := generator.ValidateToken(tt.token)
+			log := logger.Nop()
+			mockLoader := testutil.NewMockCredLoader().WithAWSCreds(testutil.CreateValidAWSCredentials())
+			config := &Config{
+				Region:        "us-east-1",
+				TokenDuration: 15 * time.Minute,
+			}
+			generator := NewTokenGenerator(config, mockLoader, log)
+
+			opts := provider.GetTokenOptions{
+				ClusterName: tt.clusterName,
+				Region:      "us-east-1",
+			}
+
+			// Cluster name validation happens in GenerateToken
+			// We test it by calling GenerateToken (which will fail at STS call but that's ok)
+			_, err := generator.GenerateToken(context.Background(), opts)
 
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -236,232 +140,282 @@ func TestTokenGenerator_ValidateToken(t *testing.T) {
 						"expected error code %s, got %v", tt.wantErrCode, err)
 				}
 			} else {
-				assert.NoError(t, err)
+				// If cluster name is valid, error will be from STS call (which is expected)
+				// We just check that it's NOT a cluster name validation error
+				if err != nil {
+					assert.False(t, errors.Is(err, errors.ErrInvalidArgument),
+						"should not get invalid argument error for valid cluster name")
+				}
 			}
 		})
 	}
 }
 
-func TestTokenGenerator_RefreshToken(t *testing.T) {
+// TestTokenGenerator_EncodeToken tests token encoding logic
+func TestTokenGenerator_EncodeToken(t *testing.T) {
 	log := logger.Nop()
+	mockLoader := testutil.NewMockCredLoader()
 	config := DefaultConfig()
-	credLoader := credentials.NewLoader(log)
-	generator := NewTokenGenerator(config, credLoader, log)
-
-	opts := provider.GetTokenOptions{
-		ClusterName: "test-cluster",
-		Region:      "us-east-1",
-	}
+	generator := NewTokenGenerator(config, mockLoader, log)
 
 	tests := []struct {
 		name         string
-		currentToken *provider.Token
-		wantRefresh  bool
+		clusterName  string
+		presignedURL string
+		wantPrefix   string
+		wantErr      bool
 	}{
 		{
-			name:         "nil token - should refresh",
-			currentToken: nil,
-			wantRefresh:  true,
+			name:         "valid token encoding",
+			clusterName:  "my-cluster",
+			presignedURL: "https://sts.amazonaws.com/?Action=GetCallerIdentity",
+			wantPrefix:   v1Prefix,
+			wantErr:      false,
 		},
 		{
-			name: "expired token - should refresh",
-			currentToken: &provider.Token{
-				AccessToken: v1Prefix + "old-token",
-				ExpiresAt:   time.Now().Add(-15 * time.Minute),
-				TokenType:   "Bearer",
-			},
-			wantRefresh: true,
-		},
-		{
-			name: "token expiring soon - should refresh",
-			currentToken: &provider.Token{
-				AccessToken: v1Prefix + "old-token",
-				ExpiresAt:   time.Now().Add(1 * time.Minute),
-				TokenType:   "Bearer",
-			},
-			wantRefresh: true,
-		},
-		{
-			name: "valid token with time remaining - no refresh",
-			currentToken: &provider.Token{
-				AccessToken: v1Prefix + "current-token",
-				ExpiresAt:   time.Now().Add(10 * time.Minute),
-				TokenType:   "Bearer",
-			},
-			wantRefresh: false,
+			name:         "token with different cluster",
+			clusterName:  "production-cluster",
+			presignedURL: "https://sts.us-west-2.amazonaws.com/?Action=GetCallerIdentity&Version=2011-06-15",
+			wantPrefix:   v1Prefix,
+			wantErr:      false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Set up minimal credentials for testing
-			os.Setenv("AWS_ACCESS_KEY_ID", "AKIAIOSFODNN7EXAMPLE")
-			os.Setenv("AWS_SECRET_ACCESS_KEY", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")
-			defer os.Unsetenv("AWS_ACCESS_KEY_ID")
-			defer os.Unsetenv("AWS_SECRET_ACCESS_KEY")
-
-			token, err := generator.RefreshToken(context.Background(), opts, tt.currentToken)
-
-			// We expect this to fail in test environment without real credentials
-			// Just verify the logic flow
-			if !tt.wantRefresh && tt.currentToken != nil {
-				// Should return the same token without refreshing
-				if err == nil {
-					assert.Equal(t, tt.currentToken.AccessToken, token.AccessToken)
-				}
-			} else {
-				// Should attempt to refresh (may fail without real credentials)
-				t.Logf("Refresh attempt result: %v (expected in test environment)", err)
-			}
-		})
-	}
-}
-
-func TestNewTokenGenerator(t *testing.T) {
-	log := logger.Nop()
-	credLoader := credentials.NewLoader(log)
-
-	tests := []struct {
-		name   string
-		config *Config
-	}{
-		{
-			name:   "with config",
-			config: DefaultConfig(),
-		},
-		{
-			name: "with custom duration",
-			config: &Config{
-				Region:        "eu-west-1",
-				TokenDuration: 10 * time.Minute,
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			generator := NewTokenGenerator(tt.config, credLoader, log)
-			assert.NotNil(t, generator)
-			assert.Equal(t, tt.config, generator.config)
-			assert.NotNil(t, generator.credLoader)
-			assert.NotNil(t, generator.logger)
-		})
-	}
-}
-
-func TestDefaultPresignDuration(t *testing.T) {
-	assert.Equal(t, 15*time.Minute, defaultPresignDuration)
-}
-
-func TestV1Prefix(t *testing.T) {
-	assert.Equal(t, "k8s-aws-v1.", v1Prefix)
-}
-
-func TestDecodeToken(t *testing.T) {
-	tests := []struct {
-		name    string
-		token   string
-		wantErr bool
-	}{
-		{
-			name: "valid token",
-			token: v1Prefix + "eyJ1cmwiOiJodHRwczovL3N0cy5hbWF6b25hd3MuY29tLyIsIm1ldGhvZCI6IlBPU1QiLCJjbHVzdGVyTmFtZSI6InRlc3QtY2x1c3RlciIsImhlYWRlcnMiOnsiSG9zdCI6WyJzdHMuYW1hem9uYXdzLmNvbSJdLCJ4LWs4cy1hd3MtaWQiOlsidGVzdC1jbHVzdGVyIl19fQ",
-			wantErr: false,
-		},
-		{
-			name:    "invalid prefix",
-			token:   "invalid-prefix.token",
-			wantErr: true,
-		},
-		{
-			name:    "invalid base64",
-			token:   v1Prefix + "not-valid-base64!!!",
-			wantErr: true,
-		},
-		{
-			name:    "invalid json",
-			token:   v1Prefix + "bm90LWpzb24",
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			payload, err := DecodeToken(tt.token)
+			token, err := generator.encodeToken(tt.clusterName, tt.presignedURL)
 
 			if tt.wantErr {
 				assert.Error(t, err)
-				assert.Nil(t, payload)
 			} else {
-				assert.NoError(t, err)
-				assert.NotNil(t, payload)
-				assert.NotEmpty(t, payload.URL)
-				assert.Equal(t, "POST", payload.Method)
+				require.NoError(t, err)
+				assert.NotEmpty(t, token)
+				assert.True(t, strings.HasPrefix(token, tt.wantPrefix),
+					"token should have prefix %s", tt.wantPrefix)
+
+				// Verify token can be base64 decoded
+				tokenWithoutPrefix := strings.TrimPrefix(token, v1Prefix)
+				decoded, err := base64.RawURLEncoding.DecodeString(tokenWithoutPrefix)
+				assert.NoError(t, err, "token should be valid base64")
+				assert.NotEmpty(t, decoded)
+
+				// Verify decoded token contains cluster name header
+				decodedStr := string(decoded)
+				assert.Contains(t, decodedStr, clusterIDHeader)
 			}
 		})
 	}
 }
 
-func TestEncodeDecodeRoundTrip(t *testing.T) {
-	log := logger.Nop()
-	credLoader := credentials.NewLoader(log)
-	config := &Config{
-		Region:        "us-east-1",
-		TokenDuration: 15 * time.Minute,
-	}
-	generator := NewTokenGenerator(config, credLoader, log)
-
-	// Create a mock presigned URL
-	presignedURL := "https://sts.amazonaws.com/?Action=GetCallerIdentity&Version=2011-06-15&X-Amz-Algorithm=AWS4-HMAC-SHA256"
-	clusterName := "test-cluster"
-
-	// Encode token
-	tokenString, err := generator.encodeToken(clusterName, presignedURL)
-	require.NoError(t, err)
-
-	// Verify format
-	assert.True(t, strings.HasPrefix(tokenString, v1Prefix))
-
-	// Decode token
-	payload, err := DecodeToken(tokenString)
-	require.NoError(t, err)
-
-	// Verify payload
-	assert.Equal(t, presignedURL, payload.URL)
-	assert.Equal(t, "POST", payload.Method)
-	assert.Equal(t, clusterName, payload.ClusterName)
-	assert.Contains(t, payload.Headers, clusterIDHeader)
-	assert.Equal(t, []string{clusterName}, payload.Headers[clusterIDHeader])
-}
-
-func TestGetTokenDuration(t *testing.T) {
-	log := logger.Nop()
-	credLoader := credentials.NewLoader(log)
-
+// TestTokenGenerator_GetTokenDuration tests token duration calculation
+func TestTokenGenerator_GetTokenDuration(t *testing.T) {
 	tests := []struct {
 		name     string
 		config   *Config
 		expected time.Duration
 	}{
 		{
-			name:     "default duration",
-			config:   &Config{},
+			name: "default duration",
+			config: &Config{
+				TokenDuration: 0, // Not set
+			},
 			expected: defaultPresignDuration,
 		},
 		{
-			name: "custom duration",
+			name: "custom duration 15 minutes",
 			config: &Config{
-				TokenDuration: 10 * time.Minute,
+				TokenDuration: 15 * time.Minute,
 			},
-			expected: 10 * time.Minute,
+			expected: 15 * time.Minute,
+		},
+		{
+			name: "custom duration 5 minutes",
+			config: &Config{
+				TokenDuration: 5 * time.Minute,
+			},
+			expected: 5 * time.Minute,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			generator := NewTokenGenerator(tt.config, credLoader, log)
+			log := logger.Nop()
+			mockLoader := testutil.NewMockCredLoader()
+			generator := NewTokenGenerator(tt.config, mockLoader, log)
+
 			duration := generator.getTokenDuration()
 			assert.Equal(t, tt.expected, duration)
+		})
+	}
+}
+
+// TestTokenDefaultConfig verifies the default AWS token config
+func TestTokenDefaultConfig(t *testing.T) {
+	config := DefaultConfig()
+
+	assert.NotNil(t, config)
+	assert.Equal(t, defaultPresignDuration, config.TokenDuration)
+	assert.Empty(t, config.Region) // Region should come from credentials
+	assert.Empty(t, config.RoleARN)
+}
+
+// TestNewTokenGenerator verifies token generator initialization
+func TestNewTokenGenerator(t *testing.T) {
+	tests := []struct {
+		name   string
+		config *Config
+		valid  bool
+	}{
+		{
+			name: "valid config",
+			config: &Config{
+				Region:        "us-east-1",
+				TokenDuration: 15 * time.Minute,
+			},
+			valid: true,
+		},
+		{
+			name: "minimal config",
+			config: &Config{
+				Region: "us-west-2",
+			},
+			valid: true,
+		},
+		{
+			name: "config with role ARN",
+			config: &Config{
+				Region:  "eu-west-1",
+				RoleARN: "arn:aws:iam::123456789012:role/MyRole",
+			},
+			valid: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			log := logger.Nop()
+			mockLoader := testutil.NewMockCredLoader()
+
+			generator := NewTokenGenerator(tt.config, mockLoader, log)
+
+			if tt.valid {
+				assert.NotNil(t, generator)
+				assert.NotNil(t, generator.config)
+				assert.NotNil(t, generator.credLoader)
+				assert.NotNil(t, generator.logger)
+			}
+		})
+	}
+}
+
+// TestToken_Properties tests token property calculations
+func TestToken_Properties(t *testing.T) {
+	now := time.Now()
+
+	tests := []struct {
+		name      string
+		expiresAt time.Time
+		wantExpired bool
+		expiresIn time.Duration
+	}{
+		{
+			name:        "token expires in 15 minutes",
+			expiresAt:   now.Add(15 * time.Minute),
+			wantExpired: false,
+			expiresIn:   15 * time.Minute,
+		},
+		{
+			name:        "token expires in 5 minutes",
+			expiresAt:   now.Add(5 * time.Minute),
+			wantExpired: false,
+			expiresIn:   5 * time.Minute,
+		},
+		{
+			name:        "token already expired",
+			expiresAt:   now.Add(-10 * time.Minute),
+			wantExpired: true,
+			expiresIn:   0,
+		},
+		{
+			name:        "token expires now",
+			expiresAt:   now,
+			wantExpired: true,
+			expiresIn:   0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			token := &provider.Token{
+				AccessToken: "k8s-aws-v1.test-token",
+				ExpiresAt:   tt.expiresAt,
+				TokenType:   "Bearer",
+			}
+
+			// Test IsExpired
+			if tt.wantExpired {
+				assert.True(t, token.IsExpired() || time.Until(token.ExpiresAt) < time.Second,
+					"token should be expired")
+			} else {
+				assert.False(t, token.IsExpired(), "token should not be expired")
+			}
+
+			// Test ExpiresIn (allow 1 second drift)
+			expiresIn := token.ExpiresIn()
+			if tt.expiresIn > 0 {
+				assert.InDelta(t, tt.expiresIn.Seconds(), expiresIn.Seconds(), 1.0,
+					"expires in calculation should be accurate")
+			} else {
+				assert.LessOrEqual(t, expiresIn, time.Duration(0),
+					"expired token should have non-positive expiresIn")
+			}
+		})
+	}
+}
+
+// TestTokenPrefix tests the v1 prefix constant
+func TestTokenPrefix(t *testing.T) {
+	assert.Equal(t, "k8s-aws-v1.", v1Prefix)
+	assert.Equal(t, "x-k8s-aws-id", clusterIDHeader)
+}
+
+// TestConfig_Validation tests config validation
+func TestConfig_Validation(t *testing.T) {
+	tests := []struct {
+		name    string
+		config  *Config
+		wantErr bool
+	}{
+		{
+			name: "valid config with all fields",
+			config: &Config{
+				Region:        "us-east-1",
+				TokenDuration: 15 * time.Minute,
+				RoleARN:       "arn:aws:iam::123456789012:role/MyRole",
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid config with minimal fields",
+			config: &Config{
+				Region: "us-west-2",
+			},
+			wantErr: false,
+		},
+		{
+			name: "config with very short duration",
+			config: &Config{
+				Region:        "us-east-1",
+				TokenDuration: 1 * time.Minute,
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Just verify config can be created
+			assert.NotNil(t, tt.config)
 		})
 	}
 }

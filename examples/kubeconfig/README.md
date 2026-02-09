@@ -89,10 +89,42 @@ spec:
 
 ## Environment Variables
 
-All examples support environment variable overrides for logging:
+### Command-Line Flags as Environment Variables
 
-- `LOG_LEVEL` - Set log level (debug, info, warn, error)
-- `LOG_FORMAT` - Set log format (json, console)
+All command-line flags can be set via environment variables using the `HFCP_` prefix:
+
+```bash
+# Instead of using flags
+hyperfleet-credential-provider generate-kubeconfig \
+  --provider=gcp \
+  --cluster-name=my-cluster \
+  --project-id=my-project \
+  --region=us-central1-a
+
+# You can use environment variables
+export HFCP_PROVIDER=gcp
+export HFCP_CLUSTER_NAME=my-cluster
+export HFCP_PROJECT_ID=my-project
+export HFCP_REGION=us-central1-a
+
+hyperfleet-credential-provider generate-kubeconfig
+```
+
+### Common Environment Variables
+
+| Environment Variable | Flag | Description |
+|---------------------|------|-------------|
+| `HFCP_PROVIDER` | `--provider` | Cloud provider (gcp, aws, azure) |
+| `HFCP_CLUSTER_NAME` | `--cluster-name` | Cluster name |
+| `HFCP_CREDENTIALS_FILE` | `--credentials-file` | Path to credentials file |
+| `HFCP_REGION` | `--region` | Cloud region/location |
+| `HFCP_PROJECT_ID` | `--project-id` | GCP project ID |
+| `HFCP_SUBSCRIPTION_ID` | `--subscription-id` | Azure subscription ID |
+| `HFCP_TENANT_ID` | `--tenant-id` | Azure tenant ID |
+| `HFCP_LOG_LEVEL` | `--log-level` | Log level (debug, info, warn, error) |
+| `HFCP_LOG_FORMAT` | `--log-format` | Log format (json, console) |
+
+**Priority**: Flags > Environment Variables > Default Values
 
 ## Security Notes
 

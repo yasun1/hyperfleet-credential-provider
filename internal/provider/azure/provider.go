@@ -24,10 +24,8 @@ func NewProvider(config *Config, log logger.Logger) (*Provider, error) {
 		config = DefaultConfig()
 	}
 
-	// Create credential loader
 	credLoader := credentials.NewLoader(log)
 
-	// Create token generator
 	tokenGenerator := NewTokenGenerator(config, credLoader, log)
 
 	// Setup Azure credential options
@@ -62,7 +60,6 @@ func (p *Provider) GetToken(ctx context.Context, opts provider.GetTokenOptions) 
 		return nil, err
 	}
 
-	// Validate token before returning
 	if err := p.tokenGenerator.ValidateToken(token); err != nil {
 		p.logger.Error("Generated token is invalid",
 			logger.String("error", err.Error()),

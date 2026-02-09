@@ -46,7 +46,6 @@ func (p *Provider) GetClusterInfo(ctx context.Context, clusterName string) (*Clu
 		return nil, fmt.Errorf("failed to load AWS credentials: %w", err)
 	}
 
-	// Create AWS config
 	cfg, err := config.LoadDefaultConfig(ctx,
 		config.WithRegion(creds.Region),
 	)
@@ -58,7 +57,6 @@ func (p *Provider) GetClusterInfo(ctx context.Context, clusterName string) (*Clu
 		return nil, fmt.Errorf("failed to create AWS config: %w", err)
 	}
 
-	// Create EKS client
 	eksClient := eks.NewFromConfig(cfg)
 
 	p.logger.Debug("Fetching cluster details",
@@ -85,7 +83,6 @@ func (p *Provider) GetClusterInfo(ctx context.Context, clusterName string) (*Clu
 		return nil, fmt.Errorf("cluster not found: %s", clusterName)
 	}
 
-	// Validate cluster data
 	if cluster.Endpoint == nil || *cluster.Endpoint == "" {
 		return nil, fmt.Errorf("cluster endpoint is empty")
 	}
@@ -93,7 +90,6 @@ func (p *Provider) GetClusterInfo(ctx context.Context, clusterName string) (*Clu
 		return nil, fmt.Errorf("cluster CA certificate is empty")
 	}
 
-	// Get CA certificate (already base64 encoded)
 	caCert := *cluster.CertificateAuthority.Data
 
 	info := &ClusterInfo{

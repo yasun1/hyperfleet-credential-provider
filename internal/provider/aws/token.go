@@ -57,7 +57,6 @@ func (g *TokenGenerator) GenerateToken(ctx context.Context, opts provider.GetTok
 		logger.String("account_id", opts.AccountID),
 	)
 
-	// Validate cluster name
 	if opts.ClusterName == "" {
 		return nil, errors.New(
 			errors.ErrInvalidArgument,
@@ -65,29 +64,24 @@ func (g *TokenGenerator) GenerateToken(ctx context.Context, opts provider.GetTok
 		).WithField("provider", "aws")
 	}
 
-	// Step 1: Load AWS credentials and create config
 	awsConfig, err := g.loadAWSConfig(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
 
-	// Step 2: Create STS presigner
 	stsClient := sts.NewFromConfig(awsConfig)
 	presignClient := sts.NewPresignClient(stsClient)
 
-	// Step 3: Create presigned GetCallerIdentity request
 	presignedURL, err := g.createPresignedURL(ctx, presignClient, opts)
 	if err != nil {
 		return nil, err
 	}
 
-	// Step 4: Encode presigned URL as EKS token
 	tokenString, err := g.encodeToken(opts.ClusterName, presignedURL)
 	if err != nil {
 		return nil, err
 	}
 
-	// Step 5: Create provider token
 	expiresAt := time.Now().Add(g.getTokenDuration())
 	token := &provider.Token{
 		AccessToken: tokenString,
@@ -159,7 +153,6 @@ func (g *TokenGenerator) loadAWSConfig(ctx context.Context, opts provider.GetTok
 
 // createPresignedURL creates a presigned GetCallerIdentity URL for EKS authentication
 func (g *TokenGenerator) createPresignedURL(ctx context.Context, presigner *sts.PresignClient, opts provider.GetTokenOptions) (string, error) {
-	// Create GetCallerIdentity input
 	input := &sts.GetCallerIdentityInput{}
 
 	// Presign the request
@@ -198,7 +191,6 @@ func (g *TokenGenerator) encodeToken(clusterName string, presignedURL string) (s
 		).WithField("provider", "aws")
 	}
 
-	// Create the token payload
 	// The payload contains the HTTP method, URL, headers, and body
 	payload := &stsPresignedURLPayload{
 		URL:        presignedURL,
@@ -223,7 +215,6 @@ func (g *TokenGenerator) encodeToken(clusterName string, presignedURL string) (s
 	// Base64url encode (without padding)
 	encoded := base64.RawURLEncoding.EncodeToString(payloadJSON)
 
-	// Add version prefix
 	token := v1Prefix + encoded
 
 	g.logger.Debug("Token encoded",
@@ -266,7 +257,6 @@ func (g *TokenGenerator) ValidateToken(token *provider.Token) error {
 		).WithField("provider", "aws")
 	}
 
-	// Validate token format
 	if !strings.HasPrefix(token.AccessToken, v1Prefix) {
 		return errors.New(
 			errors.ErrTokenInvalid,
@@ -300,7 +290,6 @@ func (g *TokenGenerator) ValidateToken(token *provider.Token) error {
 
 // RefreshToken refreshes an expired or soon-to-expire token
 func (g *TokenGenerator) RefreshToken(ctx context.Context, opts provider.GetTokenOptions, currentToken *provider.Token) (*provider.Token, error) {
-	// Check if refresh is needed
 	if currentToken != nil && !currentToken.IsExpired() {
 		// For AWS, refresh if less than 2 minutes remaining (due to shorter 15min duration)
 		if currentToken.ExpiresIn() > 2*time.Minute {

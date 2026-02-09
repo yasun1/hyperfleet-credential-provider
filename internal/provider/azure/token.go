@@ -50,7 +50,6 @@ func (g *TokenGenerator) GenerateToken(ctx context.Context, opts provider.GetTok
 		logger.String("tenant_id", opts.TenantID),
 	)
 
-	// Validate required parameters
 	if opts.ClusterName == "" {
 		return nil, errors.New(
 			errors.ErrInvalidArgument,
@@ -58,25 +57,21 @@ func (g *TokenGenerator) GenerateToken(ctx context.Context, opts provider.GetTok
 		).WithField("provider", "azure")
 	}
 
-	// Step 1: Load Azure credentials
 	azureCreds, err := g.loadAzureCredentials(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
 
-	// Step 2: Create Azure credential (service principal or managed identity)
 	credential, err := g.createCredential(azureCreds)
 	if err != nil {
 		return nil, err
 	}
 
-	// Step 3: Get Azure AD access token
 	accessToken, expiresOn, err := g.getAccessToken(ctx, credential)
 	if err != nil {
 		return nil, err
 	}
 
-	// Step 4: Create provider token
 	token := &provider.Token{
 		AccessToken: accessToken,
 		ExpiresAt:   expiresOn,
@@ -128,14 +123,12 @@ func (g *TokenGenerator) loadAzureCredentials(ctx context.Context, opts provider
 
 // createCredential creates an Azure credential from service principal credentials
 func (g *TokenGenerator) createCredential(creds *credentials.AzureCredentials) (azcore.TokenCredential, error) {
-	// Create client secret credential for service principal authentication
 	credential, err := azidentity.NewClientSecretCredential(
 		creds.TenantID,
 		creds.ClientID,
 		creds.ClientSecret,
 		&azidentity.ClientSecretCredentialOptions{
 			ClientOptions: policy.ClientOptions{
-				// Use default Azure cloud
 			},
 		},
 	)
@@ -223,7 +216,6 @@ func (g *TokenGenerator) ValidateToken(token *provider.Token) error {
 
 // RefreshToken refreshes an expired or soon-to-expire token
 func (g *TokenGenerator) RefreshToken(ctx context.Context, opts provider.GetTokenOptions, currentToken *provider.Token) (*provider.Token, error) {
-	// Check if refresh is needed
 	if currentToken != nil && !currentToken.IsExpired() {
 		// For Azure, refresh if less than 5 minutes remaining
 		if currentToken.ExpiresIn() > 5*time.Minute {

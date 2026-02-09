@@ -3,6 +3,7 @@ package credentials
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"strings"
 
@@ -37,7 +38,6 @@ func NewLoader(logger logger.Logger) Loader {
 // LoadGCP loads GCP service account credentials from a JSON file
 func (l *DefaultLoader) LoadGCP(ctx context.Context, path string) (*GCPCredentials, error) {
 	if path == "" {
-		// Check GCP-standard environment variable
 		path = os.Getenv("GOOGLE_APPLICATION_CREDENTIALS")
 		if path == "" {
 			return nil, errors.New(
@@ -70,7 +70,6 @@ func (l *DefaultLoader) LoadGCP(ctx context.Context, path string) (*GCPCredentia
 	// Save raw JSON for SDK usage
 	creds.RawJSON = string(data)
 
-	// Validate required fields
 	if err := l.validateGCPCredentials(&creds); err != nil {
 		return nil, err
 	}
@@ -93,7 +92,6 @@ func (l *DefaultLoader) LoadAWS(ctx context.Context, opts AWSCredentialOptions) 
 		Region:          opts.Region,
 	}
 
-	// Check for credentials file (priority: opts.CredentialsFile > AWS_CREDENTIALS_FILE)
 	credentialsFile := opts.CredentialsFile
 	if credentialsFile == "" {
 		credentialsFile = os.Getenv("AWS_CREDENTIALS_FILE")
@@ -172,8 +170,13 @@ func loadAWSFromFile(path string, profile string) (*AWSCredentials, error) {
 
 // parseAWSCredentialsINI parses AWS credentials in INI format
 func parseAWSCredentialsINI(content string, profile string) (*AWSCredentials, error) {
+	if profile == "" {
+		profile = "default"
+	}
+
 	creds := &AWSCredentials{}
 	inProfile := false
+	profileFound := false
 	profileHeader := "[" + profile + "]"
 
 	lines := splitLines(content)
@@ -185,6 +188,9 @@ func parseAWSCredentialsINI(content string, profile string) (*AWSCredentials, er
 
 		if hasPrefix(line, "[") {
 			inProfile = (line == profileHeader)
+			if inProfile {
+				profileFound = true
+			}
 			continue
 		}
 
@@ -212,6 +218,16 @@ func parseAWSCredentialsINI(content string, profile string) (*AWSCredentials, er
 		}
 	}
 
+	// Verify that the profile was found
+	if !profileFound {
+		return nil, fmt.Errorf("profile '%s' not found in credentials file", profile)
+	}
+
+	// Verify that required credentials were found
+	if creds.AccessKeyID == "" || creds.SecretAccessKey == "" {
+		return nil, fmt.Errorf("profile '%s' missing required credentials (aws_access_key_id and aws_secret_access_key)", profile)
+	}
+
 	return creds, nil
 }
 
@@ -223,7 +239,6 @@ func (l *DefaultLoader) LoadAzure(ctx context.Context, opts AzureCredentialOptio
 		TenantID:     opts.TenantID,
 	}
 
-	// Check for credentials file (priority: opts.CredentialsFile > AZURE_CREDENTIALS_FILE)
 	credentialsFile := opts.CredentialsFile
 	if credentialsFile == "" {
 		credentialsFile = os.Getenv("AZURE_CREDENTIALS_FILE")

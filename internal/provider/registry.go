@@ -61,7 +61,6 @@ func (r *Registry) MustRegister(name ProviderName, factory ProviderFactory) {
 	}
 }
 
-// Get retrieves a provider factory by name
 func (r *Registry) Get(name ProviderName) (ProviderFactory, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -77,7 +76,6 @@ func (r *Registry) Get(name ProviderName) (ProviderFactory, error) {
 	return factory, nil
 }
 
-// Create creates a new provider instance
 func (r *Registry) Create(ctx context.Context, name ProviderName) (Provider, error) {
 	factory, err := r.Get(name)
 	if err != nil {

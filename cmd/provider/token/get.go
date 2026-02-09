@@ -31,6 +31,11 @@ Examples:
   # Azure/AKS
   hyperfleet-credential-provider get-token --provider=azure --cluster-name=my-cluster --tenant-id=... --subscription-id=...
 `,
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			// Bind Viper values to flags before validation
+			common.BindFlagsToViper(flags)
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return run(flags)
 		},
@@ -44,13 +49,26 @@ Examples:
 	cmd.Flags().StringVar(&flags.SubscriptionID, "subscription-id", "", "Azure subscription ID (required for Azure)")
 	cmd.Flags().StringVar(&flags.TenantID, "tenant-id", "", "Azure tenant ID (required for Azure)")
 
-	cmd.MarkFlagRequired("provider")
-	cmd.MarkFlagRequired("cluster-name")
+	// Bind flags to viper for environment variable support
+	common.BindCommandFlags(cmd)
+
+	// Note: We don't use MarkFlagRequired because Cobra validates before Viper bindings take effect
+	// Instead, we validate in the RunE function after BindFlagsToViper is called
 
 	return cmd
 }
 
 func run(flags *common.Flags) error {
+	// Bind Viper values to flags (environment variables take precedence if flags not set)
+	common.BindFlagsToViper(flags)
+
+	if flags.ProviderName == "" {
+		return fmt.Errorf("--provider is required (or set HFCP_PROVIDER)")
+	}
+	if flags.ClusterName == "" {
+		return fmt.Errorf("--cluster-name is required (or set HFCP_CLUSTER_NAME)")
+	}
+
 	ctx, cancel := common.SetupSignalHandler()
 	defer cancel()
 

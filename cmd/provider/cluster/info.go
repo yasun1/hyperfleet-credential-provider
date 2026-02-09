@@ -66,13 +66,26 @@ Examples:
 	cmd.Flags().StringVar(&flags.TenantID, "tenant-id", "", "Azure tenant ID (required for Azure)")
 	cmd.Flags().StringVar(&flags.ResourceGroup, "resource-group", "", "Azure resource group (required for Azure)")
 
-	cmd.MarkFlagRequired("provider")
-	cmd.MarkFlagRequired("cluster-name")
+	// Bind flags to viper for environment variable support
+	common.BindCommandFlags(cmd)
+
+	// Note: We don't use MarkFlagRequired because Cobra validates before Viper bindings take effect
+	// Instead, we validate in the run function after BindFlagsToViper is called
 
 	return cmd
 }
 
 func run(flags *common.Flags) error {
+	// Bind Viper values to flags (environment variables take precedence if flags not set)
+	common.BindFlagsToViper(flags)
+
+	if flags.ProviderName == "" {
+		return fmt.Errorf("--provider is required (or set HFCP_PROVIDER)")
+	}
+	if flags.ClusterName == "" {
+		return fmt.Errorf("--cluster-name is required (or set HFCP_CLUSTER_NAME)")
+	}
+
 	log, err := logger.New(logger.Config{
 		Level:  logger.Level(flags.LogLevel),
 		Format: logger.Format(flags.LogFormat),
